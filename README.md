@@ -1,1 +1,1 @@
-# seqgan-opinion-spam
+# gan-opinion-spam
