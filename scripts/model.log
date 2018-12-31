@@ -1,0 +1,1027 @@
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, cache_path=None, char_level=True, checkpoint_dir='../models/', combine_reviews=False, data_dir='/home/gray/code/seqgan-opinion-spam/data/', dataset_name='op_spam', embed_dim=64, epochs=1, log_dir='../output/', log_interval=10, lr=0.001, max_seq_length=32, max_vocab_size=45, model='LanguageModelRNN', no_gpu=False, no_mask=False)
+INFO:root:Loaded dataset op_spam with shape (TensorShape([Dimension(None), Dimension(31)]), TensorShape([Dimension(None), Dimension(31)]))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:
+Train time for epoch #3 (step 100): 8.582944
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, cache_path=None, char_level=False, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', combine_reviews=False, data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='.', log_interval=10, lr=0.001, max_vocab_size=1000, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_size=500, train_size=1000, valid_size=300)
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, cache_path=None, char_level=False, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', combine_reviews=False, data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='.', log_interval=10, lr=0.001, max_vocab_size=1000, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_size=500, train_size=1000, valid_size=300)
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='.', log_interval=10, lr=0.001, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_size=500, train_size=1000, valid_size=300)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='.', log_interval=10, lr=0.001, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_size=500, train_size=1000, valid_size=300)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='.', log_interval=10, lr=0.001, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_size=500, train_size=1000, valid_size=300)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='.', log_interval=10, lr=0.001, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_size=500, train_size=1000, valid_size=300)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:
+Train time for epoch #1 (step 64): 107.870665 seconds
+INFO:root:
+Train time for epoch #2 (step 128): 107.445505 seconds
+INFO:root:
+Train time for epoch #3 (step 192): 106.628676 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='.', log_interval=10, lr=0.001, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_frac=500, train_frac=1000, valid_frac=500)
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='.', log_interval=10, lr=0.001, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_frac=500, train_frac=1000, valid_frac=500)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:
+Train time for epoch #4 (step 2): 0.354555 seconds
+INFO:root:
+Train time for epoch #5 (step 4): 0.205644 seconds
+INFO:root:
+Train time for epoch #6 (step 6): 0.180425 seconds
+INFO:root:
+Train time for epoch #7 (step 8): 0.173858 seconds
+INFO:root:
+Train time for epoch #8 (step 10): 0.177215 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='.', log_interval=10, lr=0.001, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_frac=500, train_frac=1000, valid_frac=500)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='/tmp/', log_interval=10, lr=0.001, model='LanguageModelRNN', no_gpu=False, no_mask=False, seq_length=32, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:
+Train time for epoch #9 (step 1768): 177.542430 seconds
+INFO:root:
+Train time for epoch #10 (step 3536): 178.053402 seconds
+INFO:root:
+Train time for epoch #11 (step 5304): 178.462971 seconds
+INFO:root:
+Train time for epoch #12 (step 7072): 175.244821 seconds
+INFO:root:
+Train time for epoch #13 (step 8840): 173.457761 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='train', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='train', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='./checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model=None, no_gpu=False, no_mask=False, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+WARNING:tensorflow:Deprecation Warning: create_summary_file_writer was renamed to create_file_writer
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='./checkpoints/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='train', model=None, no_gpu=False, no_mask=False, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:
+Train time for epoch #1 (step 1766): 178.010243 seconds
+INFO:root:
+Train time for epoch #2 (step 3532): 177.779919 seconds
+INFO:root:
+Train time for epoch #3 (step 5298): 179.985465 seconds
+INFO:root:
+Train time for epoch #4 (step 7064): 175.752428 seconds
+INFO:root:
+Train time for epoch #5 (step 8830): 174.626293 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those rats at the ho', seq_length=32, temperature=1.0, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/home/gray/code/seqgan-opinion-spam/checkpoints', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those rats at the ho', seq_length=32, temperature=0.2, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those rats at the ho', seq_length=32, temperature=0.2, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=1, log_dir=None, log_interval=10, lr=0.001, mode='sample', model='LanguageModelRNN', no_gpu=False, no_mask=False, sample_length=100, sample_seed_text='Those rats at the ho', seq_length=32, temperature=0.6, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='LanguageModelRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='AllChar', dataset_type='LM', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='LanguageModelRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset AllChar_LM with shape (TensorShape(None), TensorShape(None))
+INFO:root:Language Model initialized.
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:
+Train time for epoch #1 (step 100): 8.679583 seconds
+INFO:root:
+Train time for epoch #2 (step 200): 8.448438 seconds
+INFO:root:
+Train time for epoch #3 (step 300): 8.542968 seconds
+INFO:root:
+Train time for epoch #4 (step 400): 8.575974 seconds
+INFO:root:
+Train time for epoch #5 (step 500): 8.927497 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:
+Train time for epoch #1 (step 100): 8.825108 seconds
+INFO:root:
+Train time for epoch #2 (step 200): 8.567618 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:x:[[24 35  4 ...  4 34 24]
+ [28 40  4 ...  4 16 29]
+ [30 26  4 ... 22  4 38]
+ ...
+ [35 23 20 ... 18 16 35]
+ [31 33 30 ... 19  4 35]
+ [24  4 16 ...  4 16 27]] ; y:[[0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]]
+INFO:root:
+Train time for epoch #3 (step 100): 8.631104 seconds
+INFO:root:
+Train time for epoch #4 (step 200): 8.471292 seconds
+INFO:root:
+Train time for epoch #5 (step 300): 8.442780 seconds
+INFO:root:
+Train time for epoch #6 (step 400): 8.444862 seconds
+INFO:root:
+Train time for epoch #7 (step 500): 8.657822 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 40194.375
+INFO:root:x:[[35 23 24 ... 19  4 16]
+ [34 35 16 ... 21 30 33]
+ [38 20  4 ... 33  4 30]
+ ...
+ [19 36 33 ... 18 23 24]
+ [35 23 24 ... 27 27 40]
+ [20 39 18 ... 30 21  4]] ; y:[[1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]]
+INFO:root:
+Train time for epoch #8 (step 100): 8.698307 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 40194.375
+INFO:root:x:[[38 16 33 ... 35  4 23]
+ [28 40  4 ... 34 31 20]
+ [25 36 34 ... 24 29  4]
+ ...
+ [38 20  4 ... 23 20 29]
+ [28 40  4 ... 35  4 35]
+ [21 24 33 ... 16 33 19]] ; y:[[1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]]
+INFO:root:
+Train time for epoch #1 (step 100): 8.631504 seconds
+INFO:root:
+Train time for epoch #2 (step 200): 8.447782 seconds
+INFO:root:
+Train time for epoch #3 (step 300): 8.431202 seconds
+INFO:root:
+Train time for epoch #4 (step 400): 8.446489 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 40194.375
+INFO:root:x:[[28 40  4 ... 34  4 38]
+ [35 23 20 ... 34  4 29]
+ [38 20  4 ... 30 35 35]
+ ...
+ [24  4 38 ... 24 29 22]
+ [20 27 20 ...  4 34 23]
+ [28 40  4 ... 23 24 27]] ; y:[[1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]]
+INFO:root:
+Train time for epoch #1 (step 100): 8.668580 seconds
+INFO:root:
+Train time for epoch #2 (step 200): 8.479347 seconds
+INFO:root:
+Train time for epoch #3 (step 300): 8.509885 seconds
+INFO:root:
+Train time for epoch #4 (step 400): 8.474521 seconds
+INFO:root:
+Train time for epoch #5 (step 500): 8.416444 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 40194.375
+INFO:root:x:[[38 20  4 ... 33  4 16]
+ [24  4 34 ... 30  4 21]
+ [28 40  4 ...  4 23 30]
+ ...
+ [16  4 23 ... 18 26 20]
+ [38 20  4 ... 24 29 35]
+ [35 23 24 ... 27 16 34]] ; y:[[0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]]
+INFO:root:
+Train time for epoch #1 (step 100): 8.637823 seconds
+INFO:root:
+Train time for epoch #2 (step 200): 8.555222 seconds
+INFO:root:
+Train time for epoch #3 (step 300): 8.544373 seconds
+INFO:root:
+Train time for epoch #4 (step 400): 8.428361 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 40194.375
+INFO:root:x:[[38 20  4 ... 35  4 28]
+ [35 23 24 ... 27  4  5]
+ [35 23 24 ... 29  4 20]
+ ...
+ [38 23 20 ... 35 16 34]
+ [35 23 20 ... 34 35 36]
+ [25 36 34 ... 35  4 34]] ; y:[[0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]]
+INFO:root:
+Train time for epoch #1 (step 100): 8.576854 seconds
+INFO:root:
+Train time for epoch #2 (step 200): 8.451674 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[35 23 20 ... 33 24 30]
+ [35 23 20 ...  4 36 29]
+ [35 23 20 ... 33 34 35]
+ ...
+ [35 23 20 ... 29  4 35]
+ [38 20  4 ...  4 23 24]
+ [24  4 35 ...  4 23 36]] ; y:[[1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]]
+INFO:root:
+Train time for epoch #3 (step 70): 6.739939 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[38 23 20 ... 30 36 35]
+ [28 40  4 ... 16 28 16]
+ [40 30 36 ... 34 35 16]
+ ...
+ [36 31 30 ...  4 38 20]
+ [38 23 16 ... 36 31 20]
+ [35 30 30 ... 24 21 20]] ; y:[[1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]]
+INFO:root:
+Train time for epoch #1 (step 70): 6.822247 seconds
+INFO:root:
+Train time for epoch #2 (step 140): 6.729034 seconds
+INFO:root:
+Train time for epoch #3 (step 210): 6.598066 seconds
+INFO:root:
+Train time for epoch #4 (step 280): 6.680131 seconds
+INFO:root:
+Train time for epoch #5 (step 350): 6.677803 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[24 21  4 ... 33 24 20]
+ [35 23 24 ... 18 33 24]
+ [24  4 33 ... 27  4 16]
+ ...
+ [38 20  4 ...  4 20 39]
+ [24  4 34 ... 34 35  4]
+ [38 20 27 ...  4  5  4]] ; y:[[1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]]
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[28 40  4 ... 23 24 34]
+ [16 34  4 ... 27 27 20]
+ [34 35 16 ... 16  4 17]
+ ...
+ [38 20  4 ...  4 25 16]
+ [35 23 20 ... 35 20 33]
+ [20 37 20 ... 31 20 18]] ; y:[[1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]]
+INFO:root:
+Train time for epoch #6 (step 70): 6.792426 seconds
+INFO:root:
+Train time for epoch #7 (step 140): 6.874217 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[23 16 37 ... 35 27 40]
+ [36 34 20 ... 20  4 24]
+ [24  4 34 ...  9  4 23]
+ ...
+ [38 20  4 ...  4 36 31]
+ [35 23 24 ... 22 33 20]
+ [34 35 16 ... 30 38 29]] ; y:[[0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]]
+INFO:root:
+Train time for epoch #1 (step 70): 6.878122 seconds
+INFO:root:
+Train time for epoch #2 (step 140): 6.625976 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[24  4 38 ...  4 16 35]
+ [38 20  4 ... 29 24 18]
+ [24  4 23 ...  4 33 20]
+ ...
+ [35 30  4 ... 16 28 20]
+ [35 23 24 ... 40  4 24]
+ [35 23 20 ... 23 20  4]] ; y:[[0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]]
+INFO:root:
+Train time for epoch #1 (step 70): 6.861574 seconds
+INFO:root:
+Train time for epoch #2 (step 140): 6.676033 seconds
+INFO:root:
+Train time for epoch #3 (step 210): 6.782356 seconds
+INFO:root:
+Train time for epoch #4 (step 280): 6.840639 seconds
+INFO:root:
+Train time for epoch #5 (step 350): 6.794196 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[28 40  4 ... 19 24 34]
+ [24  4 38 ... 35 23 24]
+ [21 16 29 ... 17 20 16]
+ ...
+ [30 26  4 ... 22  4 38]
+ [35 23 20 ... 16 35 24]
+ [24 28 16 ... 24 35 40]] ; y:[[1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]]
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[24  4 23 ...  4 23 16]
+ [40 30 36 ... 35 30  4]
+ [38 23 24 ... 34 35 16]
+ ...
+ [33 20 18 ... 30  4 21]
+ [27 20 35 ... 24  4 23]
+ [34 31 20 ... 20  4 16]] ; y:[[0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]]
+INFO:root:
+Train time for epoch #1 (step 70): 6.764181 seconds
+INFO:root:
+Train time for epoch #2 (step 140): 6.566509 seconds
+INFO:root:
+Train time for epoch #3 (step 210): 6.571425 seconds
+INFO:root:
+Train time for epoch #4 (step 280): 6.811415 seconds
+INFO:root:
+Train time for epoch #5 (step 350): 6.872627 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[34 35 16 ... 21 30 33]
+ [28 40  4 ... 27 30 30]
+ [35 23 20 ...  4 31 33]
+ ...
+ [16 21 35 ... 18 16 22]
+ [23 16 33 ... 37 24 34]
+ [28 16 40 ... 19  4 35]] ; y:[[0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]]
+INFO:root:
+Train time for epoch #1 (step 70): 6.670308 seconds
+INFO:root:
+Train time for epoch #2 (step 140): 6.820960 seconds
+INFO:root:
+Train time for epoch #3 (step 210): 6.827336 seconds
+INFO:root:
+Train time for epoch #4 (step 280): 6.737751 seconds
+INFO:root:
+Train time for epoch #5 (step 350): 6.921543 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[24 35 34 ... 20 27  4]
+ [35 23 20 ... 36 28  4]
+ [38 16 34 ... 22 23 35]
+ ...
+ [24  4 38 ...  4 34 35]
+ [24  4 34 ... 20 27  4]
+ [24  4 16 ... 36 16 27]] ; y:[[0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]]
+INFO:root:
+Train time for epoch #6 (step 70): 6.766398 seconds
+INFO:root:
+Train time for epoch #7 (step 140): 6.491726 seconds
+INFO:root:
+Train time for epoch #8 (step 210): 6.520280 seconds
+INFO:root:
+Train time for epoch #9 (step 280): 6.825764 seconds
+INFO:root:
+Train time for epoch #10 (step 350): 6.860092 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[38 20  4 ... 35 33 24]
+ [38 20  4 ... 35 34  4]
+ [28 40  4 ... 19  4 17]
+ ...
+ [38 20  4 ... 31 24 29]
+ [24  4 17 ... 23 30 38]
+ [28 40  4 ... 30 35 20]] ; y:[[1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [1]
+ [0]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]]
+INFO:root:
+Train time for epoch #11 (step 70): 6.938118 seconds
+INFO:root:
+Train time for epoch #12 (step 140): 6.647647 seconds
+INFO:root:
+Train time for epoch #13 (step 210): 6.707199 seconds
+INFO:root:
+Train time for epoch #14 (step 280): 6.942482 seconds
+INFO:root:
+Train time for epoch #15 (step 350): 6.880257 seconds
+INFO:root:Parsed flags:Namespace(RNN_sizes=[128], batch_size=32, checkpoint_dir='/tmp/chkpts/', data_dir='/home/gray/code/seqgan-opinion-spam/data/cache/', dataset_name='OSChar', dataset_type='Lab', embed_dim=64, epochs=5, log_dir='/tmp/log/', log_interval=10, lr=0.001, mode='train', model='UniRNN', no_gpu=False, no_mask=False, pretrain=False, pretrained_lm_path=None, sample_length=50, sample_seed_text='A', seq_length=32, temperature=1, test_frac=0.15, train_frac=0.7, valid_frac=0.15)
+INFO:root:Loaded dataset OSChar_Lab with shape (TensorShape(None), TensorShape(None))
+INFO:root:Dataset size 1600
+INFO:root:x:[[35 23 20 ... 29 20  4]
+ [24  4 23 ... 36 31  4]
+ [28 40  4 ...  4 16 29]
+ ...
+ [28 40  4 ... 20  4 23]
+ [38 20  4 ... 30 28 34]
+ [28 40  4 ... 21  4 28]] ; y:[[1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]
+ [1]
+ [0]
+ [0]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [1]
+ [0]
+ [0]
+ [0]
+ [0]
+ [0]
+ [1]
+ [0]
+ [1]
+ [1]
+ [0]
+ [0]]
+INFO:root:
+Train time for epoch #16 (step 70): 6.860551 seconds
+INFO:root:
+Train time for epoch #17 (step 140): 6.717905 seconds
+INFO:root:
+Train time for epoch #18 (step 210): 6.773004 seconds
+INFO:root:
+Train time for epoch #19 (step 280): 7.041096 seconds
+INFO:root:
+Train time for epoch #20 (step 350): 7.084833 seconds
