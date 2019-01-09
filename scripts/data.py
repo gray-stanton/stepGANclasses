@@ -264,7 +264,7 @@ def rewrite_all_labels(data_dir, outfile):
     
     
 
-
+def 
 
 
 class Tokenizer():
@@ -335,6 +335,32 @@ def labeled_stream_generator(tokenfile, labelfile,
                 seeking = False
 
 
+def write_numpy_cache(gen_func, xoutfile, youtfile):
+    gen = gen_func()
+    x, y = next(gen)
+    xlen = len(x)
+    ylen = len(y)
+    rowcount = 1
+    for _ in gen:
+        rowcount +=1
+
+    Xarray = np.zeros(shape=(rowcount, xlen), dtype=np.int16)
+    if ylen == 1:
+        Yarray = np.zeros(shape=(rowcount,), dtype=np.int16)
+    else:
+        Yarray = np.zeros(shape=(rowcount, ylen))
+    gen = gen_func()
+    for i, (x, y) in enumerate(gen):
+        xrow = np.array(x, dtype=np.int16)
+        if ylen == 1:
+            yrow = np.array(y, dtype=np.int16)
+        else:
+            yrow = np.array(y, dtype=np.int16)
+        Xarray[i] = xrow
+        Yarray[i] = yrow
+
+    np.save(xoutfile, Xarray)
+    np.save(youtfile, Yarray)
 
 
 def cache_datasets(rawdata_dir, outputdata_dir):
