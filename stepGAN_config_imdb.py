@@ -5,11 +5,11 @@ clas_test = False
 
 # Saving/logging Config
 restore_model=False
-clear_run_logs = False
+clear_run_logs = True
 log_dir='/home/gray/code/stepGAN/imdb/logs'
-checkpoint_dir='/home/gray/code/stepGAN/imdb/ckpt'
-save_trained_gen = True
-load_trained_gen = False
+checkpoint_dir='/home/gray/code/stepGAN/imdb/ckpt2'
+save_trained_gen = False
+load_trained_gen = True
 gen_ckpt_dir = '/home/gray/code/stepGAN/imdb/'
 gen_ckpt_file = '/home/gray/code/stepGAN/imdb/ckpt-gen'
 log_verbose_mle = True
@@ -21,8 +21,8 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 15
-d_pretrain_epochs = 20
+g_pretrain_epochs = 1
+d_pretrain_epochs = 15
 d_pretrain_critic_epochs = 10
 div_pretrain_epochs = 0
 c_pretrain_epochs = 0
@@ -43,6 +43,9 @@ max_decoding_length = 64
 max_decoding_length_infer = 64
 use_unsup=False
 sampling_temperature = 1.0
+use_alt_disc_loss = True
+use_alt_disc_reward = True
+
 
 # Context configs
 prior_prob=0.5 # probability of class 1 in generated/unlabeled data.
@@ -86,6 +89,7 @@ train_data = {
     "shuffle": True,
     "shuffle_buffer_size": None,
     "shard_and_shuffle": False,
+
     "num_parallel_calls": 1,
     "prefetch_buffer_size": 1,
     "max_dataset_size": -1,
@@ -453,8 +457,8 @@ d_opt_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-5,
-            "learning_rate": 0.0001
+            'weight_decay' : 1e-8,
+            "learning_rate": 0.001,
         }
     },
     "learning_rate_decay": {
@@ -466,7 +470,7 @@ d_opt_hparams = {
     },
     "gradient_clip": {
         "type": tensorflow.clip_by_global_norm,
-        "kwargs": {'clip_norm':50}
+        "kwargs": {'clip_norm':1}
     },
     "gradient_noise_scale": None,
     "name": None

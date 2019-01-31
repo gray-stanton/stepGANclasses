@@ -447,6 +447,10 @@ def main(_):
                 label_smoothing = config.disc_label_smoothing_epsilon,
                 reduction=tf.losses.Reduction.MEAN)
             disc_loss = r_disc_loss + f_disc_loss
+            disc_loss2 = -tf.reduce_mean(tf.log(tf.nn.sigmoid(r_disc_score)) + 
+                                           tf.log(1 - tf.nn.sigmoid(f_disc_score)))
+            if config.use_alt_disc_loss:
+                disc_loss = disc_loss2
             disc_loss.set_shape(())
             
             d_variables = tx.utils.collect_trainable_variables([discriminator])
@@ -710,6 +714,11 @@ def main(_):
             clas_baseline = tf.squeeze(full_f_clas_crit_baselines)
 
             disc_rewards = tf.squeeze(f_disc_q_logit)
+            disc_rewards2 = tf.squeeze(tf.log(tf.sigmoid(f_disc_q_logit)))
+            if config.use_alt_disc_reward:
+                disc_rewards = disc_rewards2
+
+
             div_rewards  = tf.squeeze(f_div_log_probs)
             if config.diversity_discount != 1:
                 div_rewards = tx.losses.discount_reward(div_rewards, 
