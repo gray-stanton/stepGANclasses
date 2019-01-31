@@ -540,6 +540,19 @@ def main(_):
                 clas_loss =  r_clas_loss + config.clas_loss_on_fake_lambda * f_clas_loss
             else:
                 clas_loss = r_clas_loss
+            
+            if config.clas_min_ent_lambda:
+                f_clas_ent = tx.losses.sequence_entropy_with_logits(f_clas_q_logit,
+                                                                    sequence_length = label_seq_lengths,
+                                                                    average_across_batch=True,
+                                                                    average_across_timesteps=True,
+                                                                    sum_over_batch=False,
+                                                                    sum_over_timesteps=False)
+                clas_loss = clas_loss + config.clas_min_ent_lambda * f_clas_ent
+
+
+                    
+
             clas_loss.set_shape(())
 
             c_variables = tx.utils.collect_trainable_variables([ classifier])
@@ -714,7 +727,7 @@ def main(_):
             clas_baseline = tf.squeeze(full_f_clas_crit_baselines)
 
             disc_rewards = tf.squeeze(f_disc_q_logit)
-            disc_rewards2 = tf.squeeze(tf.log(tf.sigmoid(f_disc_q_logit)))
+            disc_rewards2 = -tf.squeeze(tf.log(tf.sigmoid(f_disc_q_logit)))
             if config.use_alt_disc_reward:
                 disc_rewards = disc_rewards2
 
@@ -1319,7 +1332,7 @@ def main(_):
                 gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
 
                 # Early Stopping
-                if gen_rtns['loss'] < (min_gen_val_loss - config.es_tolerance):
+                if gen_rtns['loss'] < (min_gen_val_loss - config.gen_es_tolerance):
                     min_gen_val_loss = gen_rtns['loss']
                     patience = 0
                     checkpoint.save(sess, checkpoint_prefix)
@@ -1377,13 +1390,13 @@ def main(_):
                 print('\n Clas Validate Pretrain Epoch {}'.format(e))
                 clas_rtns = clas_run_epoch(
                     sess, 'val', sum_writer, clas_rtns['step'])
-                if clas_rtns['loss'] < (min_clas_val_loss - config.es_tolerance):
+                if clas_rtns['loss'] < (min_clas_val_loss - config.clas_es_tolerance):
                     min_clas_val_loss = val_loss
                     checkpoint.save(sess, checkpoint_prefix)
                     patience = 0
                 else:
                     patience += 1
-                if patience > config.gen_patience:
+                if patience > config.clas_patience:
                     logger.info('Clas Early Stopping reached at {:0.02f}'.format(clas_rtns['loss']))
                     break
             

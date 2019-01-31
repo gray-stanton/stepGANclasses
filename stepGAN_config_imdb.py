@@ -7,7 +7,7 @@ clas_test = False
 restore_model=False
 clear_run_logs = True
 log_dir='/home/gray/code/stepGAN/imdb/logs'
-checkpoint_dir='/home/gray/code/stepGAN/imdb/ckpt2'
+checkpoint_dir='/home/gray/code/stepGAN/imdb/ckpt3'
 save_trained_gen = False
 load_trained_gen = True
 gen_ckpt_dir = '/home/gray/code/stepGAN/imdb/'
@@ -21,11 +21,11 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 1
-d_pretrain_epochs = 15
-d_pretrain_critic_epochs = 10
+g_pretrain_epochs = 0
+d_pretrain_epochs = 0
+d_pretrain_critic_epochs = 0
 div_pretrain_epochs = 0
-c_pretrain_epochs = 0
+c_pretrain_epochs = 20
 adversarial_epochs = 25
 
 
@@ -33,8 +33,12 @@ adversarial_epochs = 25
 min_disc_pg_acc = 0.85 # Train disc in PG when acc less than
 max_div_pg_loss = 5
 min_clas_pg_fakeacc = 0.51
+
 gen_patience=3
-es_tolerance = 0.05
+gen_es_tolerance = 0.05
+clas_es_tolerance = 0.0005
+clas_patience = 4
+
 max_extra_disc_adv_epochs = 1
 max_extra_div_adv_epochs = 5
 max_extra_clas_adv_epochs = 5
@@ -43,13 +47,12 @@ max_decoding_length = 64
 max_decoding_length_infer = 64
 use_unsup=False
 sampling_temperature = 1.0
-use_alt_disc_loss = True
-use_alt_disc_reward = True
 
 
 # Context configs
 prior_prob=0.5 # probability of class 1 in generated/unlabeled data.
 noise_size=10
+
 
 
 
@@ -63,9 +66,13 @@ min_pg_loss = -20
 max_pg_loss = 20
 add_sentence_progress = True
 
-clas_loss_on_fake_lambda = 0.5 # Balancing param on real/generated clas
+clas_loss_on_fake_lambda = 0 # Balancing param on real/generated clas
 disc_crit_train_on_fake_only = True
 clas_crit_train_on_fake_only = True
+use_alt_disc_loss = False
+use_alt_disc_reward = True
+
+clas_min_ent_lambda = 0
 
 # Different loss functions
 mle_loss_in_pg_lambda = 0
@@ -435,7 +442,7 @@ c_opt_hparams = {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
             'weight_decay' : 1e-3,
-            "learning_rate": 0.001
+            "learning_rate": 0.01
         }
     },
     "learning_rate_decay": {
@@ -447,7 +454,7 @@ c_opt_hparams = {
     },
     "gradient_clip": {
         "type": tensorflow.clip_by_global_norm,
-        "kwargs": {'clip_norm':5}
+        "kwargs": {'clip_norm':10}
     },
     "gradient_noise_scale": None,
     "name": None
