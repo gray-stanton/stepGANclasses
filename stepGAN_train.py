@@ -516,8 +516,17 @@ def main(_):
         # Train Classifier Subgraph
         with g.name_scope("clas_train"):
             logger.info("Creating classifier training subgraph...")
+            if config.clas_has_own_embedder: 
+                clas_emb_model = Embedder(vocab_size, config.emb_hparams)
+                clas_embedder = clas_emb_model.embedder
+                real_label_inp_emb = clas_embedder(label_inp)[:, 1:-1, :]
+                fake_label_inp_emb = clas_embedder(fake_seq)
+
+            real_label_inp = label_inp[:, 1:-1]
             real_label_inp_emb = label_inp_emb[:, 1:-1, :]
             fake_label_inp_emb = fake_seq_emb
+
+
 
             r_clas_q_logit, _, r_clas_cell_outputs = classifier(
                 real_label_inp_emb, sequence_length= label_seq_lengths, return_cell_output=True)
@@ -541,7 +550,7 @@ def main(_):
             else:
                 clas_loss = r_clas_loss
             
-            if config.clas_min_ent_lambda:
+            if config.clas_min_ent_lambda > 0 :
                 f_clas_ent = tx.losses.sequence_entropy_with_logits(f_clas_q_logit,
                                                                     sequence_length = label_seq_lengths,
                                                                     average_across_batch=True,
@@ -555,7 +564,10 @@ def main(_):
 
             clas_loss.set_shape(())
 
-            c_variables = tx.utils.collect_trainable_variables([ classifier])
+            if config.clas_has_own_embedder:
+                c_variables = tx.utils.collect_trainable_variables([classifier, clas_embedder])
+            else:
+                c_variables = tx.utils.collect_trainable_variables([classifier])
             clas_optimizer = tx.core.get_optimizer(hparams=config.c_opt_hparams)
             clas_train_op = clas_optimizer.minimize(clas_loss,
                                                     var_list=c_variables)
@@ -746,19 +758,33 @@ def main(_):
                                     -f_clas_q_logit) # Random class is 0
                                      )
 
+            if use_sigmoided_rewards:
+                disc_rewards = tf.nn.sigmoid(disc_rewards)
+                disc_baseline = tf.nn.sigmoid(disc_baseline)
+                clas_rewards = tf.nn.sigmoid(clas_rewards)
+                clas_baseline = tf.nn.sigmoid(clas_baseline)
             advantages = tf.squeeze(tf.zeros_like(log_probs))
             rewards = tf.squeeze(tf.zeros_like(log_probs))
-            if config.discriminator_loss_lambda > 0:
-                rewards = rewards + config.discriminator_loss_lambda * disc_rewards
-                advantages = advantages +  config.discriminator_loss_lambda *(disc_rewards - disc_baseline)
-            
-            if config.classifier_loss_lambda > 0:
-                rewards = rewards + config.classifier_loss_lambda * clas_rewards
-                advantages = advantages + config.classifier_loss_lambda *  (clas_rewards - clas_baseline)
+            if reward_blending == 'additive':
+                if config.discriminator_loss_lambda > 0:
+                    rewards = rewards + config.discriminator_loss_lambda * disc_rewards
+                    advantages = advantages +  config.discriminator_loss_lambda *(disc_rewards - disc_baseline)
+                
+                if config.classifier_loss_lambda > 0:
+                    rewards = rewards + config.classifier_loss_lambda * clas_rewards
+                    advantages = advantages + config.classifier_loss_lambda *  (clas_rewards - clas_baseline)
 
-            if config.diversifier_loss_lambda > 0:
-                rewards = rewards + config.diversifier_loss_lambda * div_rewards
-                advantages = advantages + config.diversifier_loss_lambda * (div_rewards)
+                if config.diversifier_loss_lambda > 0:
+                    rewards = rewards + config.diversifier_loss_lambda * div_rewards
+                    advantages = advantages + config.diversifier_loss_lambda * (div_rewards)
+                
+            if reward_blending == 'f1':
+                rewards = tf.multiply(config.discriminator_loss_lambda * disc_rewards, config.classifier_loss_lambda * clas_rewards)
+                rewards = tf.divide(rewards, config.discriminator_loss_lambda * disc_rewards + config.classifier_loss_lambda * clas_rewards)
+                baseline = tf.multiply(config.discriminator_loss_lambda * disc_baseline, config.classifier_loss_lambda * clas_rewards)
+                baseline = tf.divide(baseline, (config.discriminator_loss_lambda * disc_baseline + 
+                                                config.classifier_loss_lambda * clas_baseline))
+                advantages = rewards - advantages
             
             if config.norm_advantages:
                 advantages = tx.losses.discount_reward(advantages, 
@@ -1221,6 +1247,8 @@ def main(_):
         if config.use_unsup:
             unsup_iterator.switch_to_dataset(sess) # although not used, must init.
         progbar = tf.keras.utils.Progbar(size, 30, 1, 0.05)
+        if config.log_verbose_mle or config.log_verbose_rl:
+            fl = fakelogger('{}/logs.txt'.format(config.log_dir))
         while True:
             try:
                 start_time = time.time()
@@ -1238,6 +1266,19 @@ def main(_):
                     }
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = clas_summaries
+                    if clas_step % config.batches_per_text_summary == 0:
+                        fetches['fake_sentence'] = fake_seq[0, :]
+                        fetches['real_sentence'] = real_label_inp[0, : ]
+                        fetches['r_clas_q_logit'] = r_clas_q_logit[0, :]
+                        fetches['f_clas_q_logit'] = f_clas_q_logit[0, :]
+                        fetches['r_clas_score'] = r_clas_score[0]
+                        fetches['f_clas_score'] = f_clas_score[0]
+                        fetches['r_clas_loss']  = r_clas_loss
+                        fetches['f_clas_loss']  = f_clas_loss
+                        fetches['clas_baseline'] =  clas_baseline[0, :]
+                        fetches['fake_class'] = random_classes[0]
+                        fetches['real_class'] = data_labels[0]
+
                 if mode_string == 'val' or mode_string == 'test':
                     fetches = {
                         'clas_loss' : clas_loss,
@@ -1260,6 +1301,25 @@ def main(_):
                 if  clas_step % config.batches_per_summary == 0:
                     writer.add_summary(
                         rtns['summaries'], clas_step)
+                if clas_step % config.batches_per_text_summary == 0 and mode_string == 'train':
+                    r_header = ['tkn', 'logit']
+                    f_header = ['tkn', 'logit', 'V_c']
+                    r_values = [list(vocab.map_ids_to_tokens_py(rtns['real_sentence'])),
+                                rtns['r_clas_q_logit'].squeeze().tolist()
+                               ]
+                    f_values = [list(vocab.map_ids_to_tokens_py(rtns['fake_sentence'])),
+                                rtns['f_clas_q_logit'].squeeze().tolist(),
+                                rtns['clas_baseline'].squeeze().tolist()
+                               ]
+                    fl.debug('REAL SENTENTCE')
+                    r_final_line = 'class: {} r_disc_loss: {:0.02f} r_disc_score: {:0.02f}'.format(
+                        rtns['real_class'], rtns['r_clas_loss'], rtns['r_clas_score'])
+                    f_final_line = 'class: {} f_disc_loss: {:0.02f} f_disc_score: {:0.02f}'.format(
+                        rtns['fake_class'], rtns['f_clas_loss'], rtns['f_clas_score'])
+                    print_out_array(r_header, r_values, fl, r_final_line)
+                    fl.debug('FAKE SENTENCE')
+                    print_out_array(f_header, f_values, fl, f_final_line)
+
                 clas_step += 1
                 nexamples += rtns['batch_size']
                 total_loss += loss * rtns['batch_size']
@@ -1381,7 +1441,7 @@ def main(_):
             
 
             logger.info("Starting classifier pretraining...")
-            min_clas_val_loss = 0
+            min_clas_val_loss = 1e8
             patience = 0
             clas_rtns = {'step' : 0, 'real_acc': 0}
             for e in range(config.c_pretrain_epochs):
@@ -1391,7 +1451,7 @@ def main(_):
                 clas_rtns = clas_run_epoch(
                     sess, 'val', sum_writer, clas_rtns['step'])
                 if clas_rtns['loss'] < (min_clas_val_loss - config.clas_es_tolerance):
-                    min_clas_val_loss = val_loss
+                    min_clas_val_loss = clas_rtns['loss']
                     checkpoint.save(sess, checkpoint_prefix)
                     patience = 0
                 else:
@@ -1402,6 +1462,8 @@ def main(_):
             
             logger.info('Min Clas  val loss: {}, acc: {}'.format(min_clas_val_loss, clas_rtns['real_acc']))
             logger.info("Starting adversarial training...")
+            prev_gen_val = 1e8
+            extra_disc = False
             for e in range(config.adversarial_epochs):
                 cur_epoch = e + config.g_pretrain_epochs
                 # Generator Train
@@ -1419,12 +1481,14 @@ def main(_):
                 # Train Disc
                 disc_e = 0
                 while config.discriminator_loss_lambda > 0 and (disc_rtns['acc'] < config.min_disc_pg_acc or
-                                                                abs(gen_rtns['loss']) <= 0.2): 
+                                                                abs(gen_rtns['loss']) <= 0.2 or
+                                                                extra_disc):
                     logger.info('\nDisc Adv-Train Epoch: {}+{}'.format(cur_epoch, disc_e))
                     disc_rtns = disc_run_epoch(sess, 'train', sum_writer, disc_rtns['step'])
                     disc_rtns = disc_run_epoch(sess, 'val', sum_writer, disc_rtns['step'])
                     checkpoint.save(sess, checkpoint_prefix + '-adv')
                     disc_e += 1
+                    extra_disc = False
                     if disc_e > config.max_extra_disc_adv_epochs:
                         logger.info('\nReached extra disc epoch limit at acc: {}'.format(disc_rtns['acc']))
                         break
@@ -1432,6 +1496,13 @@ def main(_):
                 # Generator validate
                 logger.info('\nGen Adv-Valid Epoch {}'.format(cur_epoch))
                 gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
+                if gen_rtns['loss'] < prev_gen_val:
+                    prev_gen_val = gen_rtns['loss']
+                    extra_disc = False
+                else:
+                    extra_disc = True
+
+                
 
 
                 # Check Div Loss
