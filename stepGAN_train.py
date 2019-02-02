@@ -454,6 +454,7 @@ def main(_):
             disc_loss.set_shape(())
             
             d_variables = tx.utils.collect_trainable_variables([discriminator])
+            print(d_variables)
             disc_optimizer = tx.core.get_optimizer(hparams=config.d_opt_hparams)
 
             disc_train_op = disc_optimizer.minimize(disc_loss,
@@ -735,10 +736,10 @@ def main(_):
             log_probs = tf.clip_by_value(log_probs, config.min_log_prob, config.max_log_prob)
 
             # Critic baselines
-            disc_baseline = tf.squeeze(full_f_disc_crit_baselines)
-            clas_baseline = tf.squeeze(full_f_clas_crit_baselines)
+            disc_baseline = full_f_disc_crit_baselines
+            clas_baseline = full_f_clas_crit_baselines
 
-            disc_rewards = tf.squeeze(f_disc_q_logit)
+            disc_rewards = f_disc_q_logit
             disc_rewards2 = -tf.squeeze(tf.log(tf.sigmoid(f_disc_q_logit)))
             if config.use_alt_disc_reward:
                 disc_rewards = disc_rewards2
@@ -758,14 +759,16 @@ def main(_):
                                     -f_clas_q_logit) # Random class is 0
                                      )
 
-            if use_sigmoided_rewards:
+            if config.use_sigmoided_rewards:
                 disc_rewards = tf.nn.sigmoid(disc_rewards)
                 disc_baseline = tf.nn.sigmoid(disc_baseline)
                 clas_rewards = tf.nn.sigmoid(clas_rewards)
                 clas_baseline = tf.nn.sigmoid(clas_baseline)
-            advantages = tf.squeeze(tf.zeros_like(log_probs))
-            rewards = tf.squeeze(tf.zeros_like(log_probs))
-            if reward_blending == 'additive':
+            #advantages = tf.squeeze(tf.zeros_like(log_probs))
+            #rewards = tf.squeeze(tf.zeros_like(log_probs))
+            rewards = disc_rewards
+            advantages = disc_rewards - disc_baseline
+            if config.reward_blending == 'additive' and False:
                 if config.discriminator_loss_lambda > 0:
                     rewards = rewards + config.discriminator_loss_lambda * disc_rewards
                     advantages = advantages +  config.discriminator_loss_lambda *(disc_rewards - disc_baseline)
@@ -778,20 +781,23 @@ def main(_):
                     rewards = rewards + config.diversifier_loss_lambda * div_rewards
                     advantages = advantages + config.diversifier_loss_lambda * (div_rewards)
                 
-            if reward_blending == 'f1':
-                rewards = tf.multiply(config.discriminator_loss_lambda * disc_rewards, config.classifier_loss_lambda * clas_rewards)
-                rewards = tf.divide(rewards, config.discriminator_loss_lambda * disc_rewards + config.classifier_loss_lambda * clas_rewards)
-                baseline = tf.multiply(config.discriminator_loss_lambda * disc_baseline, config.classifier_loss_lambda * clas_rewards)
+            if config.reward_blending == 'f1':
+                rewards = tf.multiply(config.discriminator_loss_lambda * disc_rewards,
+                                      config.classifier_loss_lambda * clas_rewards)
+                rewards = tf.divide(rewards, (config.discriminator_loss_lambda * disc_rewards + 
+                                              config.classifier_loss_lambda * clas_rewards))
+                baseline = tf.multiply(config.discriminator_loss_lambda * disc_baseline,
+                                       config.classifier_loss_lambda * clas_rewards)
                 baseline = tf.divide(baseline, (config.discriminator_loss_lambda * disc_baseline + 
                                                 config.classifier_loss_lambda * clas_baseline))
-                advantages = rewards - advantages
-            
+                advantages = rewards - baseline
             if config.norm_advantages:
-                advantages = tx.losses.discount_reward(advantages, 
+                advantages = tx.losses.discount_reward(tf.expand_dims(advantages, -1), 
                                                        sequence_length=gen_lengths,
                                                        discount=1,
-                                                       normalize=True,
-                                                       tensor_rank = 2)
+                                                       normalize=True)
+            p = tf.print(tf.shape(advantages))
+            #advantages = advantages / config.advantage_var_reduc
             advantages = tf.squeeze(advantages)
             # Advantage clipping
             advantages = tf.clip_by_value(advantages, -config.adv_max_clip, config.adv_max_clip)
@@ -914,6 +920,7 @@ def main(_):
                         'loss' : pg_loss,
                         'train_op' : pg_train_op,
                         'global_step' : global_step,
+                        'p' : p
                     }
                     if  gen_step % config.batches_per_summary == 0:
                         fetches['summaries'] = pg_summaries
@@ -922,8 +929,8 @@ def main(_):
                         fetches['sentence'] = gen_sample_ids[40, :]
                         fetches['logits'] = observed_gen_logits[40, :]
                         fetches['log_probs'] = log_probs[40, :]
-                        fetches['disc_q_logit'] = f_disc_q_logit[40, :]
-                        fetches['clas_q_logit'] = f_clas_q_logit[40, :]
+                        fetches['disc_reward'] = disc_rewards[40, :]
+                        fetches['clas_reward'] = clas_rewards[40, :]
                         fetches['disc_crit'] = disc_baseline[40, :]
                         fetches['clas_crit'] = clas_baseline[40, :]
                         fetches['qvalues'] = rewards[40, :]
@@ -966,8 +973,8 @@ def main(_):
                         values = [list(vocab.map_ids_to_tokens_py(rtns['sentence'])),
                                   rtns['logits'].squeeze().tolist(),
                                   rtns['log_probs'].squeeze().tolist(),
-                                  rtns['disc_q_logit'].squeeze().tolist(),
-                                  rtns['clas_q_logit'].squeeze().tolist(), 
+                                  rtns['disc_reward'].squeeze().tolist(),
+                                  rtns['clas_reward'].squeeze().tolist(), 
                                   rtns['disc_crit'].squeeze().tolist(), 
                                   rtns['clas_crit'].squeeze().tolist(),
                                   rtns['qvalues'].squeeze().tolist(),
@@ -1450,9 +1457,9 @@ def main(_):
                 print('\n Clas Validate Pretrain Epoch {}'.format(e))
                 clas_rtns = clas_run_epoch(
                     sess, 'val', sum_writer, clas_rtns['step'])
+                checkpoint.save(sess, checkpoint_prefix)
                 if clas_rtns['loss'] < (min_clas_val_loss - config.clas_es_tolerance):
                     min_clas_val_loss = clas_rtns['loss']
-                    checkpoint.save(sess, checkpoint_prefix)
                     patience = 0
                 else:
                     patience += 1
@@ -1481,7 +1488,7 @@ def main(_):
                 # Train Disc
                 disc_e = 0
                 while config.discriminator_loss_lambda > 0 and (disc_rtns['acc'] < config.min_disc_pg_acc or
-                                                                abs(gen_rtns['loss']) <= 0.2 or
+                                                                abs(gen_rtns['loss']) <= 0.02 or
                                                                 extra_disc):
                     logger.info('\nDisc Adv-Train Epoch: {}+{}'.format(cur_epoch, disc_e))
                     disc_rtns = disc_run_epoch(sess, 'train', sum_writer, disc_rtns['step'])

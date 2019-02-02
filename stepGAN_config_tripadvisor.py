@@ -1,60 +1,83 @@
 import tensorflow
 
+# Overarching
+clas_test = False
+
 # Saving/logging Config
-restore_model=False
+restore_model= False
 clear_run_logs = True
-log_dir='/home/gray/code/stepGAN/tripadv/logs'
-checkpoint_dir='/home/gray/code/stepGAN/tripadv/ckpt-full2'
+log_dir='/home/gray/code/stepGAN/imdb/logs'
+checkpoint_dir='/home/gray/code/stepGAN/imdb/ckpt4'
 save_trained_gen = False
 load_trained_gen = False
-gen_ckpt_dir = '/home/gray/code/stepGAN/tripadv/'
-gen_ckpt_file = '/home/gray/code/stepGAN/tripadv/ckpt-gen'
+gen_ckpt_dir = '/home/gray/code/stepGAN/imdb/'
+gen_ckpt_file = '/home/gray/code/stepGAN/imdb/ckpt-gen'
 log_verbose_mle = True
 log_verbose_rl = True
 batches_per_summary = 10
+batches_per_text_summary = 50
 use_char_sep=False
+compute_grad_norms = False
 
 # Epoch count
-train_lm_only = True
-g_pretrain_epochs = 0
-d_pretrain_epochs = 1
-d_pretrain_critic_epochs = 0
-div_pretrain_epochs =0
+train_lm_only = False
+g_pretrain_epochs = 7
+d_pretrain_epochs = 0
+d_pretrain_critic_epochs = 1
+div_pretrain_epochs = 0
 c_pretrain_epochs = 0
 adversarial_epochs = 20
 
 
 # Training configs
-min_disc_pg_acc = 0.83 # Train disc in PG when acc less than
+min_disc_pg_acc = 0.85 # Train disc in PG when acc less than
+max_div_pg_loss = 5
+min_clas_pg_fakeacc = 0.51
+
 gen_patience=3
-es_tolerance = 0.05
+gen_es_tolerance = 0.05
+clas_es_tolerance = -0.05
+clas_patience = 4
 
-# Context configs
-prior_prob=0.4 # probability of class 1 in generated/unlabeled data.
-noise_size=3
-
+max_extra_disc_adv_epochs = 1
+max_extra_div_adv_epochs = 5
+max_extra_clas_adv_epochs = 5
 
 max_decoding_length = 128
-max_decoding_length_infer = 130
-clas_loss_lambda = 0
+max_decoding_length_infer = 128
 use_unsup=False
 sampling_temperature = 1.0
-steps_per_summary = 100
+
+
+# Context configs
+prior_prob=0.5 # probability of class 1 in generated/unlabeled data.
+noise_size=10
+
+advantage_var_reduc = 1
 
 
 
 # Training tweaks
-disc_label_smoothing_epsilon = 0.02
-adv_max_clip = 10
-min_log_prob = 0.01
-max_log_prob = 10
-min_pg_loss = -10
-max_pg_loss = 10
+disc_label_smoothing_epsilon = 0.05
+adv_max_clip = 50
+min_log_prob = 0.1
+max_log_prob = 50
+min_pg_loss = -100
+max_pg_loss = 100
 add_sentence_progress = True
 
-clas_loss_on_fake_lambda = 0.3 # Balancing param on real/generated clas
+clas_loss_on_fake_lambda = 0.5 # Balancing param on real/generated clas
 disc_crit_train_on_fake_only = True
 clas_crit_train_on_fake_only = True
+use_alt_disc_loss = False
+use_alt_disc_reward = False
+use_sigmoided_rewards = False
+
+reward_blending = 'additive'
+
+clas_min_ent_lambda = 0.3
+
+clas_has_own_embedder = True
 
 # Different loss functions
 mle_loss_in_pg_lambda = 0
@@ -63,11 +86,11 @@ pg_max_ent_lambda = 0
 discriminator_loss_lambda = 1
 diversifier_loss_lambda = 0
 diversity_discount = 0.95
-classifier_loss_lambda = 0
+classifier_loss_lambda = 0.7
 norm_advantages = True
+norm_pg_loss = False
 
 bleu_test = False
-
 
 
 

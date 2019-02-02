@@ -4,11 +4,11 @@ import tensorflow
 clas_test = False
 
 # Saving/logging Config
-restore_model= True
+restore_model= False
 clear_run_logs = True
 log_dir='/home/gray/code/stepGAN/imdb/logs'
-checkpoint_dir='/home/gray/code/stepGAN/imdb/ckpt3'
-save_trained_gen = True
+checkpoint_dir='/home/gray/code/stepGAN/imdb/ckpt4'
+save_trained_gen = False
 load_trained_gen = False
 gen_ckpt_dir = '/home/gray/code/stepGAN/imdb/'
 gen_ckpt_file = '/home/gray/code/stepGAN/imdb/ckpt-gen'
@@ -21,12 +21,12 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 0
-d_pretrain_epochs = 10
-d_pretrain_critic_epochs = 0
+g_pretrain_epochs = 7
+d_pretrain_epochs = 0
+d_pretrain_critic_epochs = 1
 div_pretrain_epochs = 0
-c_pretrain_epochs = 10
-adversarial_epochs = 0
+c_pretrain_epochs = 0
+adversarial_epochs = 20
 
 
 # Training configs
@@ -36,10 +36,10 @@ min_clas_pg_fakeacc = 0.51
 
 gen_patience=3
 gen_es_tolerance = 0.05
-clas_es_tolerance = 0.0005
+clas_es_tolerance = -0.05
 clas_patience = 4
 
-max_extra_disc_adv_epochs = 5
+max_extra_disc_adv_epochs = 1
 max_extra_div_adv_epochs = 5
 max_extra_clas_adv_epochs = 5
 
@@ -53,7 +53,7 @@ sampling_temperature = 1.0
 prior_prob=0.5 # probability of class 1 in generated/unlabeled data.
 noise_size=10
 
-
+advantage_var_reduc = 1
 
 
 
@@ -71,9 +71,9 @@ disc_crit_train_on_fake_only = True
 clas_crit_train_on_fake_only = True
 use_alt_disc_loss = False
 use_alt_disc_reward = False
-use_sigmoided_rewards = True
+use_sigmoided_rewards = False
 
-reward_blending = 'f1'
+reward_blending = 'additive'
 
 clas_min_ent_lambda = 0
 
@@ -86,7 +86,7 @@ pg_max_ent_lambda = 0
 discriminator_loss_lambda = 1
 diversifier_loss_lambda = 0
 diversity_discount = 0.95
-classifier_loss_lambda = 1
+classifier_loss_lambda = 0
 norm_advantages = True
 norm_pg_loss = True
 
@@ -423,7 +423,7 @@ g_opt_pg_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-8,
+            'weight_decay' : 1e-15,
             "learning_rate": 0.00005
         }
     },
