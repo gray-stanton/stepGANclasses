@@ -17,31 +17,13 @@ def clean(s, char=False):
     str.strip(ns)
     return ns
 
-def _rewrite_reviews(filenames, basepath, text_output_path, label_output_path, char):
-    with open(text_output_path, 'w') as txtf, open(label_output_path, 'w') as labf:
-        for fn in filenames:
-            name = os.path.splitext(fn)[0]
-            textid, label = name.split('_')
-            with open(os.path.join(basepath, fn), 'r') as f:
-                review = f.read()
-            cl = clean(review, char)
-            txtf.write(cl + '\n')
-            dis_label = 0 if int(label) < 5 else 1
-            labf.write(str(dis_label) + '\n')
-
-
-
-def rewrite(basepath, textout, labout, char):
-    names = os.listdir(basepath)
-    _rewrite_reviews(names, basepath, textout, labout, char)
-
 def split_valid(textpath, labpath, tr_outtxt, tr_outlab,
                 val_outtxt, val_outlab, split_count ):
     with open(textpath, 'r') as txtf, open(labpath, 'r') as labf:
         texts = txtf.readlines()
         labs = labf.readlines()
     shfl_idx = random.sample(range(len(texts)), len(texts))
-    texts = [texts[i] for i in shfl_idx]
+    texts = [clean(texts[i]) for i in shfl_idx]
     labs = [labs[i] for i in shfl_idx]
 
     val_texts = texts[:split_count]
@@ -50,12 +32,14 @@ def split_valid(textpath, labpath, tr_outtxt, tr_outlab,
     train_labs = labs[split_count:]
     with open(tr_outtxt, 'w') as txtf, open(tr_outlab, 'w') as labf:
         for r, l in zip(train_texts, train_labs):
-            txtf.write(r)
+            txtf.write(r + '\n')
             labf.write(l)
     with open(val_outtxt, 'w') as txtf, open(val_outlab, 'w') as labf:
         for r, l in zip(val_texts, val_labs):
-            txtf.write(r)
+            txtf.write(r + '\n')
             labf.write(l)
+
+
 
 
 
@@ -63,30 +47,23 @@ def split_valid(textpath, labpath, tr_outtxt, tr_outlab,
 
 
 if __name__=='__main__':
-    rewrite('./aclImdb/train/ex', './reviews.txt', './labs.txt', False)
-    rewrite('./aclImdb/test/ex', './test_reviews.txt', './test_labs.txt', False)
-    rewrite('./aclImdb/train/ex', './reviews_char.txt', './labs_char.txt', True)
-    rewrite('./aclImdb/test/ex', './test_reviews_char.txt', './test_labs_char.txt', True)
-    rewrite('./aclImdb/train/unsup', './unsup_reviews.txt', './nothing.txt', False)
-    rewrite('./aclImdb/train/unsup', './unsup_reviews_char.txt', './nothing.txt', False)
-    split_valid('./reviews.txt', './labs.txt', './train_reviews.txt', './train_labs.txt', 
-                './val_reviews.txt', './val_labs.txt', 4000)
-    split_valid('./reviews_char.txt', './labs_char.txt', 
-                './train_reviews_char.txt', './train_labs_char.txt', 
-                './val_reviews_char.txt', './val_labs_char.txt', 4000)
+    split_valid('./opspam_reviews.txt', './opspam_labels.txt',
+                './opspam_train_reviews.txt', './opspam_train_labels.txt',
+                './opspam_val_reviews.txt', './opspam_val_labels.txt',
+                320)
+    split_valid('./opspam_val_reviews.txt', './opspam_val_labels.txt',
+                './opspam_val_reviews.txt', './opspam_val_labels.txt',
+                './opspam_test_reviews.txt', './opspam_test_labels.txt',
+                160)
 
-    vocab_words = tx.data.make_vocab(['./reviews.txt', './test_reviews.txt'], max_vocab_size=7000)
-    with open('./reviews_char.txt', 'r') as f:
-        x = f.read()
-        vocab_chars = set(x)
-    with open('imdb_vocab.txt', 'w') as vf:
+    
+    vocab_words = tx.data.make_vocab(['./opspam_train_reviews.txt',
+                                      './opspam_val_reviews.txt',
+                                     './opspam_test_reviews.txt'], max_vocab_size=10000)
+    with open('opspam_vocab.txt', 'w') as vf:
         for v in vocab_words:
             vf.write(v + '\n')
 
-    with open('imdb_vocab_chars.txt', 'w') as vf:
-        for v in list(vocab_chars):
-            if v != '\n':
-                vf.write(v + '\n')
 
 
 
