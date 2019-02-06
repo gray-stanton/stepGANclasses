@@ -21,15 +21,15 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 1 # 70
-d_pretrain_epochs = 0 # 85
-d_pretrain_critic_epochs = 0 #20
+g_pretrain_epochs = 70 # 70
+d_pretrain_epochs = 85 # 85
+d_pretrain_critic_epochs = 20 #20
 div_pretrain_epochs = 0
-c_pretrain_epochs = 0
-adversarial_epochs = 100
+c_pretrain_epochs = 55 # 55
+adversarial_epochs = 50
 
 disc_adv = 25
-clas_adv = 3
+clas_adv = 15
 
 # Training configs
 min_disc_pg_acc = 0.85 # Train disc in PG when acc less than
@@ -39,7 +39,7 @@ min_clas_pg_fakeacc = 0.51
 gen_patience=20
 gen_es_tolerance = 0.005
 clas_es_tolerance = -0.05
-clas_patience = 4
+clas_patience = 10
 
 max_extra_disc_adv_epochs = 1
 max_extra_div_adv_epochs = 5
@@ -51,9 +51,9 @@ use_unsup=False
 sampling_temperature = 1.0
 
 annealing_length = 0
-adversarial_length = 24
+adversarial_length = 48
 
-linear_decay_pg_weights = True
+linear_decay_pg_weights = False
 
 # Context configs
 prior_prob=0.5 # probability of class 1 in generated/unlabeled data.
@@ -81,7 +81,7 @@ use_sigmoided_rewards = False
 
 reward_blending = 'additive'
 
-clas_min_ent_lambda = 0.3
+clas_min_ent_lambda = 0.5
 
 clas_has_own_embedder = True
 disc_has_own_embedder = False
@@ -93,9 +93,10 @@ pg_max_ent_lambda = 0
 discriminator_loss_lambda = 1
 diversifier_loss_lambda = 0
 diversity_discount = 1
-classifier_loss_lambda = 0
+classifier_loss_lambda = 0.5
 norm_advantages = True
 discriminator_random_stopping = True
+classifier_random_stopping = True
 let_discriminator_train_embedder = True
 
 bleu_test = False
@@ -454,7 +455,7 @@ c_opt_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-3,
+            'weight_decay' : 5e-3,
             "learning_rate": 0.0001
         }
     },

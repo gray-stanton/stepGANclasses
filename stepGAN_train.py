@@ -168,6 +168,7 @@ def main(_):
     with g.as_default():
         logger = get_logger(config.log_dir)
         global_step = tf.train.get_or_create_global_step()
+        global_mode = tx.global_mode()
         
         # Get data
         logger.info("Constructing graph...")
@@ -301,7 +302,8 @@ def main(_):
             #tf.summary.scalar('median_logit_mle', median_logit_mle)
             tf.summary.scalar('loss_mle', loss_mle)
             tf.summary.scalar('logit_sd_mle', logit_sd_mle)
-            tf.summary.scalar('perplexity', tf.exp(loss_mle))
+            perplexity = tf.exp(loss_mle)
+            tf.summary.scalar('perplexity', perplexity)
             if config.compute_grad_norms:
                 tf.summary.scalar('mle_grad_norm',
                                   tf.linalg.global_norm(
@@ -315,7 +317,7 @@ def main(_):
             tf.summary.scalar("val_mean_min_logit_mle", mean_min_logit_mle)
             tf.summary.scalar('val_mean_logit_mle', mean_logit_mle)
             tf.summary.scalar('val_loss_mle', loss_mle)
-            tf.summary.scalar('val_perplexity', tf.exp(loss_mle))
+            tf.summary.scalar('val_perplexity', perplexity)
             val_mle_summaries = tf.summary.merge_all(scope='val_mle_summaries')
 
 
@@ -479,26 +481,28 @@ def main(_):
                 f_u = tf.distributions.Uniform(low=1.0, high=tf.cast(gen_lengths, tf.float32))
                 r_stopping_indices = tf.squeeze(tf.round(r_u.sample(1)))
                 f_stopping_indices = tf.squeeze(tf.round(f_u.sample(1)))
-                r_disc_score = tx.losses.mask_and_reduce(tf.squeeze(r_disc_q_logit),
+                r_disc_q_logit_sq = tf.squeeze(r_disc_q_logit)
+                f_disc_q_logit_sq = tf.squeeze(f_disc_q_logit)
+                r_disc_score = tx.losses.mask_and_reduce(r_disc_q_logit_sq,
                                                   r_stopping_indices,
                                                   average_across_batch=False,
                                                   average_across_timesteps=True,
                                                   sum_over_batch=False,
                                                   sum_over_timesteps=False)
-                f_disc_score = tx.losses.mask_and_reduce(tf.squeeze(f_disc_q_logit),
+                f_disc_score = tx.losses.mask_and_reduce(f_disc_q_logit_sq,
                                                   f_stopping_indices,
                                                   average_across_batch=False,
                                                   average_across_timesteps=True,
                                                   sum_over_batch=False,
                                                   sum_over_timesteps=False)
             else:
-                r_disc_score = tx.losses.mask_and_reduce(tf.squeeze(r_disc_q_logit),
+                r_disc_score = tx.losses.mask_and_reduce(r_disc_q_logit_sq,
                                                   real_seq_lengths,
                                                   average_across_batch=False,
                                                   average_across_timesteps=True,
                                                   sum_over_batch=False,
                                                   sum_over_timesteps=False)
-                f_disc_score = tx.losses.mask_and_reduce(tf.squeeze(f_disc_q_logit),
+                f_disc_score = tx.losses.mask_and_reduce(f_disc_q_logit_sq,
                                                   gen_lengths,
                                                   average_across_batch=False,
                                                   average_across_timesteps=True,
@@ -507,14 +511,16 @@ def main(_):
 
             r_disc_score = tf.expand_dims(r_disc_score, 1)
             f_disc_score = tf.expand_dims(f_disc_score, 1)
+            true_labs = tf.ones_like(r_disc_score)
+            fake_labs = tf.zeros_like(f_disc_score)
             r_disc_loss = tf.losses.sigmoid_cross_entropy(
                 logits = r_disc_score,
-                multi_class_labels=tf.ones_like(r_disc_score), 
+                multi_class_labels=true_labs, 
                 label_smoothing = config.disc_label_smoothing_epsilon,
                 reduction=tf.losses.Reduction.MEAN)
             f_disc_loss = tf.losses.sigmoid_cross_entropy(
                 logits=f_disc_score,
-                multi_class_labels=tf.zeros_like(f_disc_score), 
+                multi_class_labels=fake_labs, 
                 label_smoothing = config.disc_label_smoothing_epsilon,
                 reduction=tf.losses.Reduction.MEAN)
             disc_loss = r_disc_loss + f_disc_loss
@@ -595,7 +601,7 @@ def main(_):
             if config.clas_has_own_embedder: 
                 clas_emb_model = Embedder(vocab_size, config.emb_hparams)
                 clas_embedder = clas_emb_model.embedder
-                clas_copy_embedding_weights = clas_embedder.embedding.assign(embedder.embedding)
+                clas_copy_embedder_weights = clas_embedder.embedding.assign(embedder.embedding)
 
             # Designate clas input
             real_label_inp = label_inp[:, 1:-1]
@@ -614,7 +620,7 @@ def main(_):
                 fake_label_inp_emb, sequence_length = gen_lengths, return_cell_output=True)
 
             # Random stopping
-            if config.discriminator_random_stopping:
+            if config.classifier_random_stopping:
                 r_u = tf.distributions.Uniform(low=1.0, high=tf.cast(label_seq_lengths, tf.float32))
                 f_u = tf.distributions.Uniform(low=1.0, high=tf.cast(gen_lengths, tf.float32))
                 r_stopping_indices = tf.squeeze(tf.round(r_u.sample(1)))
@@ -685,18 +691,18 @@ def main(_):
                                                     var_list=c_variables)
             # Classifier critic
             r_clas_crit_inp = r_clas_cell_outputs[:, :-1]
-            r_clas_crit_target = r_clas_qvalues[:, :]
+            r_clas_crit_target = r_clas_q_logit[:, :]
             f_clas_crit_inp = f_clas_cell_outputs[:, :-1]
-            f_clas_crit_target = f_clas_qvalues[:, :]
+            f_clas_crit_target = f_clas_q_logit[:, :]
             r_clas_crit_baselines = clas_crit(r_clas_crit_inp)
             f_clas_crit_baselines = clas_crit(f_clas_crit_inp)
             init_clas_pred = tf.Variable(0, dtype=tf.float32)
             init_clas_pred_tile1 = tf.reshape(
-                tf.tile(tf.expand_dims(init_clas_pred, 0), [tf.shape(r_clas_crit_inp)[0]],
-                       [-1, 1, 1]))
+                tf.tile(tf.expand_dims(init_clas_pred, 0), [tf.shape(r_clas_crit_inp)[0]]),
+                       [-1, 1, 1])
             init_clas_pred_tile2 = tf.reshape(
-                tf.tile(tf.expand_dims(init_clas_pred, 0), [tf.shape(f_clas_crit_inp)[0]],
-                        [-1, 1, 1]))
+                tf.tile(tf.expand_dims(init_clas_pred, 0), [tf.shape(f_clas_crit_inp)[0]]),
+                        [-1, 1, 1])
             r_clas_crit_baselines = tf.concat([init_clas_pred_tile1, r_clas_crit_baselines], axis=1)
             f_clas_crit_baselines = tf.concat([init_clas_pred_tile2, f_clas_crit_baselines], axis=1)
 
@@ -858,7 +864,7 @@ def main(_):
 
             # Critic baselines
             disc_baseline = f_disc_crit_baselines
-            clas_baseline = full_f_clas_crit_baselines
+            clas_baseline = f_clas_crit_baselines
 
             disc_rewards = f_disc_q_logit
             disc_rewards2 = -tf.squeeze(tf.log(tf.sigmoid(f_disc_q_logit)))
@@ -888,8 +894,9 @@ def main(_):
             #advantages = tf.squeeze(tf.zeros_like(log_probs))
             #rewards = tf.squeeze(tf.zeros_like(log_probs))
             if config.classifier_loss_lambda >0:
-                rewards = disc_rewards + config.classifier_loss_lambda * clas_rewards
-                advantages = disc_rewards - disc_baseline  + config.classifier_loss_lambda * (clas_rewards - clas_baseline)
+                rewards = tf.nn.sigmoid(disc_rewards) + config.classifier_loss_lambda * tf.nn.sigmoid(clas_rewards)
+                advantages = tf.nn.sigmoid(disc_rewards) - tf.nn.sigmoid(disc_baseline)  +\
+                    config.classifier_loss_lambda * (tf.nn.sigmoid(clas_rewards) - tf.nn.sigmoid(clas_baseline))
             else:
                 rewards = tf.nn.sigmoid(disc_rewards)
                 advantages = rewards - tf.nn.sigmoid(disc_baseline)
@@ -1084,7 +1091,7 @@ def main(_):
                     if  gen_step % config.batches_per_summary == 0:
                         fetches['summaries'] = val_mle_summaries
 
-                feed_dict = {tx.global_mode(): modekey,
+                feed_dict = {global_mode : modekey,
                              discriminator_dropout : tf.estimator.ModeKeys.PREDICT}
                 rtns = sess.run(fetches, feed_dict=feed_dict)
                 glob_step = rtns['global_step']
@@ -1203,7 +1210,7 @@ def main(_):
                         fetches['r_div_mean_lp'] = r_div_mean_lp
                         fetches['f_div_mean_lp'] = f_div_mean_lp
                 
-                feed_dict = {tx.global_mode(): modekey}    
+                feed_dict = {global_mode: modekey}    
                 rtns = sess.run(fetches, feed_dict=feed_dict)
                 glob_step = rtns['global_step']
                 loss = rtns['loss']
@@ -1329,7 +1336,7 @@ def main(_):
                     }
                     if disc_step % config.batches_per_summary == 0:
                         fetches['summaries'] = disc_summaries
-                feed_dict = {tx.global_mode() : modekey,
+                feed_dict = {global_mode : modekey,
                              discriminator_dropout : tf.estimator.ModeKeys.TRAIN}
                 rtns = sess.run(fetches, feed_dict=feed_dict)
                 glob_step = rtns['global_step']
@@ -1444,7 +1451,7 @@ def main(_):
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = val_clas_summaries
                 
-                feed_dict = {tx.global_mode(): modekey}
+                feed_dict = {global_mode: modekey}
                 rtns = sess.run(fetches, feed_dict = feed_dict)
                 glob_step = rtns['global_step']
                 loss = rtns['clas_loss']
@@ -1625,9 +1632,11 @@ def main(_):
             extra_disc = False
             if config.adversarial_length > 0:
                 max_length.load(config.adversarial_length, sess)
-                for e in range(45):
+                for e in range(1):
                     disc_rtns = disc_run_epoch(
                         sess, 'train', sum_writer, disc_rtns['step'])
+                    clas_rtns = clas_run_epoch(
+                        sess, 'train', sum_writer, clas_rtns['step'])
                     checkpoint.save(sess, checkpoint_prefix)
                     
             for e in range(config.adversarial_epochs):
@@ -1639,7 +1648,7 @@ def main(_):
                     logger.info('\nGen Adv-MLE Train Epoch{}'.format(cur_epoch))
                     gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer)
                 # Save
-                checkpoint.save(sess, checkpoint_prefix + '-adv')
+                checkpoint.save(sess, checkpoint_prefix +( '-adv'))
                 
                 # Check discriminator loss
                 if config.discriminator_loss_lambda > 0:
