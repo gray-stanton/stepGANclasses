@@ -22,10 +22,10 @@ class Generator(tf.keras.Model):
 
 class RNNDiscriminator(tf.keras.Model):
     """Discriminator wrapper"""
-    def __init__(self, disc_config):
+    def __init__(self, disc_config, dropout):
         super(RNNDiscriminator, self).__init__()
         self.encoder = tx.modules.UnidirectionalRNNEncoder(
-            hparams = disc_config['encoder'])
+            hparams = disc_config['encoder'], cell_dropout_mode=dropout)
             
 
 class RNNClassifier(tf.keras.Model):
@@ -217,7 +217,14 @@ def main(_):
                                              dtype=tf.float32)
         
         # Discriminator
-        disc_model = RNNDiscriminator(config.disc_hparams)
+        if config.disc_has_own_embedder:
+            disc_embedder_model = Embedder(vocab_size, config.emb_hparams)
+            disc_embedder = disc_embedder_model.embedder
+            copy_embedder_weights = disc_embedder.embedding.assign(embedder.embedding)
+        else:
+            disc_embedder = embedder
+        discriminator_dropout = tf.placeholder(dtype=tf.string)
+        disc_model = RNNDiscriminator(config.disc_hparams, discriminator_dropout)
         discriminator = disc_model.encoder
 
         # Classifier
@@ -285,13 +292,13 @@ def main(_):
             mean_max_logit_mle = tf.reduce_mean(tf.reduce_max(logits_mle, axis = -1))
             mean_min_logit_mle = tf.reduce_mean(tf.reduce_min(logits_mle, axis = -1))
             mean_logit_mle = tf.reduce_mean(logits_mle)
-            median_logit_mle = tf.reduce_mean(
-                tf.contrib.distributions.percentile(logits_mle, q=50, axis=-1))
+            #median_logit_mle = tf.reduce_mean(
+            #    tf.contrib.distributions.percentile(logits_mle, q=50, axis=-1))
             logit_sd_mle = tf.sqrt(tf.reduce_mean(tf.square(logits_mle)) - tf.square(mean_logit_mle))
             tf.summary.scalar('mean_logit_mle', mean_logit_mle)
             tf.summary.scalar("mean_max_logit_mle", mean_max_logit_mle)
             tf.summary.scalar("mean_min_logit_mle", mean_min_logit_mle)
-            tf.summary.scalar('median_logit_mle', median_logit_mle)
+            #tf.summary.scalar('median_logit_mle', median_logit_mle)
             tf.summary.scalar('loss_mle', loss_mle)
             tf.summary.scalar('logit_sd_mle', logit_sd_mle)
             tf.summary.scalar('perplexity', tf.exp(loss_mle))
@@ -316,9 +323,9 @@ def main(_):
         # Generate subgraph
         with g.name_scope('gen_sample'):
             if config.annealing_length > 0:
-                max_length = tf.constant(config.annealing_length, dtype=tf.int32)
+                max_length = tf.Variable(config.annealing_length, dtype=tf.int32)
             else:
-                max_length = config.max_decode_length_infer
+                max_length = tf.Variable(config.max_decoding_length_infer, dtype=tf.int32)
             logger.info("Creating token sequence sampling subgraph...")
             start_tokens = tf.cast(tf.fill([batch_size], 
                                    vocab.bos_token_id),
@@ -357,7 +364,6 @@ def main(_):
                 gen_sample_ids = gen_outputs.predicted_ids[:, :, 0] # take only best beam
                 gen_lengths = gen_lengths[:, 0] # only take best beam
                 gen_logits = gen_outputs.logits[:, :, 0, :]# only take best beam
-                p1 = tf.print(tf.shape(gen_logits))
             else:
                 gen_outputs, _, gen_lengths = g_decoder(
                     helper = context_helper,
@@ -382,7 +388,7 @@ def main(_):
             logit_sd_gen = tf.sqrt(tf.reduce_mean(tf.square(gen_logits)) -\
                                    tf.square(mean_logit_gen))
             mean_length = tf.reduce_mean(gen_lengths)
-            max_length = tf.reduce_max(gen_lengths)
+            max_gen_length = tf.reduce_max(gen_lengths)
             min_length = tf.reduce_min(gen_lengths)
 
             sample_text = vocab.map_ids_to_tokens(gen_sample_ids)
@@ -396,7 +402,7 @@ def main(_):
             tf.summary.scalar('median_logit', median_logit)
             tf.summary.scalar('logit_sd', logit_sd_gen)
             tf.summary.scalar('mean_length', mean_length)
-            tf.summary.scalar('max_length', max_length)
+            tf.summary.scalar('max_length', max_gen_length)
             tf.summary.scalar('min_length', min_length)
             gen_sample_summaries = tf.summary.merge_all(scope='gen_sample')
             gen_sample_summaries = tf.summary.merge([gen_sample_summaries, mle_summaries])
@@ -410,16 +416,15 @@ def main(_):
             fake_seq = gen_sample_ids
             real_seq = inp[:, 1:-1] # remove BOS EOS token as fake does not have.
             real_seq_lengths = tf.clip_by_value(seq_lengths, 0, tf.shape(real_seq)[1])
-            real_inp = embedder(real_seq)
-            fake_inp = embedder(fake_seq)
+            real_inp = disc_embedder(real_seq)
+            fake_inp = disc_embedder(fake_seq)
 
-            if config.annealing_length > 0:
-                fake_seq = fake_seq[:, :max_length]
-                real_seq = real_seq[:, :max_length]
-                real_inp = real_inp[:, :max_length, :]
-                real_seq_lengths = tf.clip_by_value(real_seq_lengths, 0, tf.shape(real_inp)[1])
-                fake_inp = fake_inp[:, :max_length, :]
-                gen_lengths = tf.clip_by_value(gen_lengths, 0, tf.shape(fake_inp)[1])
+            fake_seq = fake_seq[:, :max_length]
+            real_seq = real_seq[:, :max_length]
+            real_inp = real_inp[:, :max_length, :]
+            real_seq_lengths = tf.clip_by_value(real_seq_lengths, 0, tf.shape(real_inp)[1])
+            fake_inp = fake_inp[:, :max_length, :]
+            gen_lengths = tf.clip_by_value(gen_lengths, 0, tf.shape(fake_inp)[1])
 
             if config.add_sentence_progress:
                 f_progress_vector = tf.ones_like(fake_inp)
@@ -465,7 +470,8 @@ def main(_):
             r_disc_q_logit, _, r_disc_cell_outputs = discriminator(
                 real_inp, sequence_length= real_seq_lengths, return_cell_output=True)
             f_disc_q_logit, _, f_disc_cell_outputs = discriminator(
-                fake_inp, sequence_length = gen_lengths, return_cell_output=True)
+                fake_inp, sequence_length = gen_lengths, 
+                return_cell_output=True)
             r_disc_qvalues = tf.math.sigmoid(r_disc_q_logit)
             f_disc_qvalues = tf.math.sigmoid(f_disc_q_logit)
             if config.discriminator_random_stopping:
@@ -473,34 +479,34 @@ def main(_):
                 f_u = tf.distributions.Uniform(low=1.0, high=tf.cast(gen_lengths, tf.float32))
                 r_stopping_indices = tf.squeeze(tf.round(r_u.sample(1)))
                 f_stopping_indices = tf.squeeze(tf.round(f_u.sample(1)))
-                r_disc_score = tx.losses.mask_and_reduce(tf.squeeze(r_disc_qvalues),
+                r_disc_score = tx.losses.mask_and_reduce(tf.squeeze(r_disc_q_logit),
                                                   r_stopping_indices,
                                                   average_across_batch=False,
                                                   average_across_timesteps=True,
                                                   sum_over_batch=False,
                                                   sum_over_timesteps=False)
-                f_disc_score = tx.losses.mask_and_reduce(tf.squeeze(f_disc_qvalues),
+                f_disc_score = tx.losses.mask_and_reduce(tf.squeeze(f_disc_q_logit),
                                                   f_stopping_indices,
                                                   average_across_batch=False,
                                                   average_across_timesteps=True,
                                                   sum_over_batch=False,
                                                   sum_over_timesteps=False)
             else:
-                r_disc_score = tx.losses.mask_and_reduce(tf.squeeze(r_disc_qvalues),
-                                                  real_sequence_lengths,
+                r_disc_score = tx.losses.mask_and_reduce(tf.squeeze(r_disc_q_logit),
+                                                  real_seq_lengths,
                                                   average_across_batch=False,
                                                   average_across_timesteps=True,
                                                   sum_over_batch=False,
                                                   sum_over_timesteps=False)
-                f_disc_score = tx.losses.mask_and_reduce(tf.squeeze(f_disc_qvalues),
+                f_disc_score = tx.losses.mask_and_reduce(tf.squeeze(f_disc_q_logit),
                                                   gen_lengths,
                                                   average_across_batch=False,
                                                   average_across_timesteps=True,
                                                   sum_over_batch=False,
                                                   sum_over_timesteps=False)
 
-
-
+            r_disc_score = tf.expand_dims(r_disc_score, 1)
+            f_disc_score = tf.expand_dims(f_disc_score, 1)
             r_disc_loss = tf.losses.sigmoid_cross_entropy(
                 logits = r_disc_score,
                 multi_class_labels=tf.ones_like(r_disc_score), 
@@ -517,8 +523,10 @@ def main(_):
             if config.use_alt_disc_loss:
                 disc_loss = disc_loss2
             disc_loss.set_shape(())
-            
-            d_variables = tx.utils.collect_trainable_variables([discriminator])
+            if config.let_discriminator_train_embedder:
+                d_variables = tx.utils.collect_trainable_variables([discriminator, disc_embedder])
+            else:
+                d_variables = tx.utils.collect_trainable_variables([discriminator])
             disc_optimizer = tx.core.get_optimizer(hparams=config.d_opt_hparams)
 
             disc_train_op = disc_optimizer.minimize(disc_loss,
@@ -587,38 +595,69 @@ def main(_):
             if config.clas_has_own_embedder: 
                 clas_emb_model = Embedder(vocab_size, config.emb_hparams)
                 clas_embedder = clas_emb_model.embedder
-                real_label_inp_emb = clas_embedder(label_inp)[:, 1:-1, :]
-                fake_label_inp_emb = clas_embedder(fake_seq)
+                clas_copy_embedding_weights = clas_embedder.embedding.assign(embedder.embedding)
 
+            # Designate clas input
             real_label_inp = label_inp[:, 1:-1]
             real_label_inp_emb = label_inp_emb[:, 1:-1, :]
-            fake_label_inp_emb = embedder(fake_seq)
+            fake_label_inp_emb = clas_embedder(fake_seq)
             
-            if config.annealing_length > 0:
-                real_label_inp = real_label_inp[:, :max_length]
-                real_label_inp_emb = real_label_inp_emb[:, :max_length, :]
-                fake_label_inp_emb = fake_label_inp_emb[:, :max_length, :]
-                label_seq_lengths = tf.clip_by_value(label_seq_lengths, 0, max_length)
+            real_label_inp = real_label_inp[:, :max_length]
+            real_label_inp_emb = real_label_inp_emb[:, :max_length, :]
+            fake_label_inp_emb = fake_label_inp_emb[:, :max_length, :]
+            label_seq_lengths = tf.clip_by_value(label_seq_lengths, 0, max_length)
 
-
+            # Pass through classifier
             r_clas_q_logit, _, r_clas_cell_outputs = classifier(
                 real_label_inp_emb, sequence_length= label_seq_lengths, return_cell_output=True)
             f_clas_q_logit, _, f_clas_cell_outputs = classifier(
                 fake_label_inp_emb, sequence_length = gen_lengths, return_cell_output=True)
-            r_clas_score = tf.squeeze(tf.reduce_mean(r_clas_q_logit, axis=1, keepdims=False))
-            f_clas_score = tf.squeeze(tf.reduce_mean(f_clas_q_logit, axis=1, keepdims=False))
+
+            # Random stopping
+            if config.discriminator_random_stopping:
+                r_u = tf.distributions.Uniform(low=1.0, high=tf.cast(label_seq_lengths, tf.float32))
+                f_u = tf.distributions.Uniform(low=1.0, high=tf.cast(gen_lengths, tf.float32))
+                r_stopping_indices = tf.squeeze(tf.round(r_u.sample(1)))
+                f_stopping_indices = tf.squeeze(tf.round(f_u.sample(1)))
+                r_clas_score = tx.losses.mask_and_reduce(tf.squeeze(r_clas_q_logit),
+                                                  r_stopping_indices,
+                                                  average_across_batch=False,
+                                                  average_across_timesteps=True,
+                                                  sum_over_batch=False,
+                                                  sum_over_timesteps=False)
+                f_clas_score = tx.losses.mask_and_reduce(tf.squeeze(f_clas_q_logit),
+                                                  f_stopping_indices,
+                                                  average_across_batch=False,
+                                                  average_across_timesteps=True,
+                                                  sum_over_batch=False,
+                                                  sum_over_timesteps=False)
+            else:
+                r_clas_score = tx.losses.mask_and_reduce(tf.squeeze(r_clas_q_logit),
+                                                  real_seq_lengths,
+                                                  average_across_batch=False,
+                                                  average_across_timesteps=True,
+                                                  sum_over_batch=False,
+                                                  sum_over_timesteps=False)
+                f_clas_score = tx.losses.mask_and_reduce(tf.squeeze(f_clas_q_logit),
+                                                  gen_lengths,
+                                                  average_across_batch=False,
+                                                  average_across_timesteps=True,
+                                                  sum_over_batch=False,
+                                                  sum_over_timesteps=False)
+
+            
+            
             r_clas_qvalues = tf.math.sigmoid(r_clas_q_logit)
             f_clas_qvalues = tf.math.sigmoid(f_clas_q_logit)
             r_clas_loss = tf.losses.sigmoid_cross_entropy(
                 logits=r_clas_score, 
                 multi_class_labels = data_labels,
                 reduction=tf.losses.Reduction.MEAN)
-                # Have not implemented min-ent term here...
             f_clas_loss = tf.losses.sigmoid_cross_entropy(
                 logits=f_clas_score, 
                 multi_class_labels=tf.squeeze(tf.cast(random_classes, tf.float32)),
                 reduction=tf.losses.Reduction.MEAN)
-            if  config.clas_loss_on_fake_lambda > 0:
+            if  config.clas_loss_on_fake_lambda > 0 :
                 clas_loss =  r_clas_loss + config.clas_loss_on_fake_lambda * f_clas_loss
             else:
                 clas_loss = r_clas_loss
@@ -646,11 +685,22 @@ def main(_):
                                                     var_list=c_variables)
             # Classifier critic
             r_clas_crit_inp = r_clas_cell_outputs[:, :-1]
-            r_clas_crit_target = r_clas_qvalues[:, 1:]
+            r_clas_crit_target = r_clas_qvalues[:, :]
             f_clas_crit_inp = f_clas_cell_outputs[:, :-1]
-            f_clas_crit_target = f_clas_qvalues[:, 1:]
+            f_clas_crit_target = f_clas_qvalues[:, :]
             r_clas_crit_baselines = clas_crit(r_clas_crit_inp)
             f_clas_crit_baselines = clas_crit(f_clas_crit_inp)
+            init_clas_pred = tf.Variable(0, dtype=tf.float32)
+            init_clas_pred_tile1 = tf.reshape(
+                tf.tile(tf.expand_dims(init_clas_pred, 0), [tf.shape(r_clas_crit_inp)[0]],
+                       [-1, 1, 1]))
+            init_clas_pred_tile2 = tf.reshape(
+                tf.tile(tf.expand_dims(init_clas_pred, 0), [tf.shape(f_clas_crit_inp)[0]],
+                        [-1, 1, 1]))
+            r_clas_crit_baselines = tf.concat([init_clas_pred_tile1, r_clas_crit_baselines], axis=1)
+            f_clas_crit_baselines = tf.concat([init_clas_pred_tile2, f_clas_crit_baselines], axis=1)
+
+
             r_clas_crit_loss = tf.losses.mean_squared_error(labels=r_clas_crit_target,
                                                           predictions=r_clas_crit_baselines,
                                                            reduction=tf.losses.Reduction.MEAN)
@@ -664,15 +714,10 @@ def main(_):
 
             clas_crit_optimizer = tx.core.get_optimizer(hparams=config.c_crit_opt_hparams)
             clas_crit_train_op = clas_crit_optimizer.minimize(clas_crit_loss,
-                                                              var_list=clas_crit.trainable_variables)
+                                                              var_list=[clas_crit.trainable_variables,
+                                                                       init_clas_pred])
 
             
-            # Need to get last baseline
-            last_f_clas_baseline = clas_crit_layer(f_clas_cell_outputs[:, -1])
-            full_f_clas_crit_baselines = tf.concat([
-                f_clas_crit_baselines, tf.expand_dims(last_f_clas_baseline, axis=1)],
-                axis=1)
-
 
             r_probs = tf.math.sigmoid(r_clas_score)
             f_probs = tf.math.sigmoid(f_clas_score)
@@ -809,7 +854,7 @@ def main(_):
                          gen_logits, gen_sample_ids)
             log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=gen_logits,
                                                                            labels=gen_sample_ids)
-            log_probs = tf.clip_by_value(log_probs, config.min_log_prob, config.max_log_prob)
+            log_probs = -tf.clip_by_value(log_probs, config.min_log_prob, config.max_log_prob)
 
             # Critic baselines
             disc_baseline = f_disc_crit_baselines
@@ -878,6 +923,16 @@ def main(_):
                                                        discount=0,
                                                        normalize=True,
                                                        tensor_rank=2)
+            if config.linear_decay_pg_weights:
+                steps = tf.reshape(
+                    tf.tile(
+                        tf.range(0.0, tf.cast(tf.shape(advantages)[1], dtype=tf.float32), dtype=tf.float32),
+                        [tf.shape(advantages)[0]]),
+                    [-1, tf.shape(advantages)[1]])
+                alpha = tf.cast(tf.expand_dims(gen_lengths, 1), dtype=tf.float32) - steps
+                alpha = tx.utils.mask_sequences(alpha, gen_lengths)
+                advantages = tf.multiply(advantages, alpha)
+
             
             #p = tf.print(tf.shape(advantages))#, advantages[0, :], advantages[1, :])
             #advantages = advantages / config.advantage_var_reduc
@@ -918,8 +973,6 @@ def main(_):
                     average_across_remaining=True)
                 pg_loss = pg_loss - config.pg_max_ent_lambda * pg_ent_loss
 
-            if config.mle_loss_in_pg_lambda > 0:
-                pg_loss = pg_loss + config.mle_loss_in_pg_lambda * loss_mle # Costly
 
 
             pg_loss.set_shape(())
@@ -1005,7 +1058,6 @@ def main(_):
                         'loss' : pg_loss,
                         'train_op' : pg_train_op,
                         'global_step' : global_step,
-                        #'p1' : p1
                     }
                     if  gen_step % config.batches_per_summary == 0:
                         fetches['summaries'] = pg_summaries
@@ -1032,7 +1084,8 @@ def main(_):
                     if  gen_step % config.batches_per_summary == 0:
                         fetches['summaries'] = val_mle_summaries
 
-                feed_dict = {tx.global_mode(): modekey}
+                feed_dict = {tx.global_mode(): modekey,
+                             discriminator_dropout : tf.estimator.ModeKeys.PREDICT}
                 rtns = sess.run(fetches, feed_dict=feed_dict)
                 glob_step = rtns['global_step']
                 loss = rtns['loss']
@@ -1247,8 +1300,8 @@ def main(_):
                         fetches['real_sentence'] = real_seq[0, : ]
                         fetches['r_disc_q_logit'] = r_disc_q_logit[0, :]
                         fetches['f_disc_q_logit'] = f_disc_q_logit[0, :]
-                        fetches['r_disc_score'] = r_disc_score[0]
-                        fetches['f_disc_score'] = f_disc_score[0]
+                        fetches['r_disc_score'] = r_disc_score[0, 0]
+                        fetches['f_disc_score'] = f_disc_score[0, 0]
                         fetches['r_disc_loss']  = r_disc_loss
                         fetches['f_disc_loss']  = f_disc_loss
                         fetches['disc_baseline'] =  disc_baseline[0, :]
@@ -1276,7 +1329,8 @@ def main(_):
                     }
                     if disc_step % config.batches_per_summary == 0:
                         fetches['summaries'] = disc_summaries
-                feed_dict = {tx.global_mode() : modekey}
+                feed_dict = {tx.global_mode() : modekey,
+                             discriminator_dropout : tf.estimator.ModeKeys.TRAIN}
                 rtns = sess.run(fetches, feed_dict=feed_dict)
                 glob_step = rtns['global_step']
                 loss = rtns['disc_loss']
@@ -1297,9 +1351,9 @@ def main(_):
                                 rtns['disc_baseline'].squeeze().tolist()
                                ]
                     r_final_line = 'r_disc_loss: {:0.02f} r_disc_score: {:0.02f}'.format(
-                        rtns['r_disc_loss'], rtns['r_disc_score'][0])
+                        rtns['r_disc_loss'], rtns['r_disc_score'])
                     f_final_line = 'f_disc_loss: {:0.02f} f_disc_score: {:0.02f}'.format(
-                        rtns['f_disc_loss'], rtns['f_disc_score'][0])
+                        rtns['f_disc_loss'], rtns['f_disc_score'])
                     fl.debug('REAL SENTENTCE')
                     print_out_array(r_header, r_values, fl, r_final_line)
                     fl.debug('FAKE SENTENCE')
@@ -1510,11 +1564,16 @@ def main(_):
             # Keep track of these separate from global_step
             # Disc Pretraining
             logger.info("Starting discriminator pretraining...")
+            if config.disc_has_own_embedder:
+                sess.run(copy_embedder_weights)
             disc_rtns = {'step' : 0}
             for e in range(config.d_pretrain_epochs):
                 logger.info('\n Disc Pretrain Epoch {} '.format(e))
                 disc_rtns = disc_run_epoch(
                     sess, 'train', sum_writer, disc_rtns['step'])
+                logger.info('\n Disc Val Epoch {} '.format(e))
+                disc_rtns = disc_run_epoch(
+                    sess, 'val', sum_writer, disc_rtns['step'])
                 checkpoint.save(sess, checkpoint_prefix)
             logger.info('\n Discriminator critic pretraining...')
             for e in range(config.d_pretrain_critic_epochs):
@@ -1542,6 +1601,8 @@ def main(_):
             min_clas_val_loss = 1e8
             patience = 0
             clas_rtns = {'step' : 0, 'real_acc': 0}
+            if config.clas_has_own_embedder:
+                sess.run(clas_copy_embedder_weights)
             for e in range(config.c_pretrain_epochs):
                 logger.info('\nClas Pretrain Epoch {}'.format(e))
                 clas_rtns = clas_run_epoch(sess, 'train', sum_writer, clas_rtns['step'])
@@ -1562,11 +1623,21 @@ def main(_):
             logger.info("Starting adversarial training...")
             prev_gen_val = 1e8
             extra_disc = False
+            if config.adversarial_length > 0:
+                max_length.load(config.adversarial_length, sess)
+                for e in range(45):
+                    disc_rtns = disc_run_epoch(
+                        sess, 'train', sum_writer, disc_rtns['step'])
+                    checkpoint.save(sess, checkpoint_prefix)
+                    
             for e in range(config.adversarial_epochs):
                 cur_epoch = e + config.g_pretrain_epochs
                 # Generator Train
                 logger.info('\nGen Adv-Train Epoch {}'.format(cur_epoch))
                 gen_rtns = gen_run_epoch(sess, 'train', sum_writer) 
+                if config.mle_loss_in_adv:
+                    logger.info('\nGen Adv-MLE Train Epoch{}'.format(cur_epoch))
+                    gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer)
                 # Save
                 checkpoint.save(sess, checkpoint_prefix + '-adv')
                 

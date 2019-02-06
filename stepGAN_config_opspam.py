@@ -4,11 +4,11 @@ import tensorflow
 clas_test = False
 
 # Saving/logging Config
-restore_model= True
+restore_model= False
 clear_run_logs = True
 log_dir='/home/gray/code/stepGAN/opspam/logs'
 checkpoint_dir='/home/gray/code/stepGAN/opspam/ckpt'
-save_trained_gen = False
+save_trained_gen = True
 load_trained_gen = False
 gen_ckpt_dir = '/home/gray/code/stepGAN/opspam/'
 gen_ckpt_file = '/home/gray/code/stepGAN/opspam/ckpt-gen'
@@ -21,14 +21,14 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 0
-d_pretrain_epochs = 25
-d_pretrain_critic_epochs = 10
+g_pretrain_epochs = 1 # 70
+d_pretrain_epochs = 0 # 85
+d_pretrain_critic_epochs = 0 #20
 div_pretrain_epochs = 0
 c_pretrain_epochs = 0
 adversarial_epochs = 100
 
-disc_adv = 3
+disc_adv = 25
 clas_adv = 3
 
 # Training configs
@@ -50,7 +50,8 @@ max_decoding_length_infer = 128
 use_unsup=False
 sampling_temperature = 1.0
 
-annealing_length = 12
+annealing_length = 0
+adversarial_length = 24
 
 linear_decay_pg_weights = True
 
@@ -64,14 +65,14 @@ advantage_var_reduc = 1
 
 # Training tweaks
 disc_label_smoothing_epsilon = 0.05
-adv_max_clip = 50
+adv_max_clip = 5
 min_log_prob = 0.1
 max_log_prob = 100
 min_pg_loss = -20
 max_pg_loss = 20
 add_sentence_progress = True
 
-clas_loss_on_fake_lambda = 0 # Balancing param on real/generated clas
+clas_loss_on_fake_lambda = 0.5 # Balancing param on real/generated clas
 disc_crit_train_on_fake_only = True
 clas_crit_train_on_fake_only = True
 use_alt_disc_loss = False
@@ -80,21 +81,22 @@ use_sigmoided_rewards = False
 
 reward_blending = 'additive'
 
-clas_min_ent_lambda = 0
+clas_min_ent_lambda = 0.3
 
 clas_has_own_embedder = True
+disc_has_own_embedder = False
 
 # Different loss functions
-mle_loss_in_pg_lambda = 0
+mle_loss_in_adv = True
 pg_max_ent_lambda = 0
 
 discriminator_loss_lambda = 1
 diversifier_loss_lambda = 0
 diversity_discount = 1
 classifier_loss_lambda = 0
-norm_advantages = False
+norm_advantages = True
 discriminator_random_stopping = True
-
+let_discriminator_train_embedder = True
 
 bleu_test = False
 
@@ -202,7 +204,7 @@ test_data = {
 }
 unsup_data = { 
     "num_epochs": 1,
-    "batch_size": 16,
+    "batch_size": 32,
     "allow_smaller_final_batch": True,
     "shuffle": True,
     "shuffle_buffer_size": None,
@@ -231,8 +233,8 @@ unsup_data = {
 # EMBEDDER HPARAMS
 
 emb_hparams = {
-    "dim": 100,
-    "dropout_rate": 0.3,
+    "dim": 200,
+    "dropout_rate": 0.0,
     "dropout_strategy": 'element',
     "trainable": True,
     "initializer": {
@@ -258,7 +260,7 @@ g_decoder_hparams = {
     "rnn_cell": {
             "type": tensorflow.contrib.cudnn_rnn.CudnnCompatibleGRUCell,
             "kwargs": {
-                "num_units": 360,
+                "num_units": 1024,
                 
             },
             "num_layers": 2,
@@ -268,7 +270,7 @@ g_decoder_hparams = {
                 "state_keep_prob": 1.0,
                 "variational_recurrent": True,
                 "input_size": [emb_hparams['dim'] + noise_size + 1,
-                               360]
+                               1024]
             },
             "residual": False,
             "highway": False,
@@ -294,13 +296,13 @@ disc_hparams = {
 
         "rnn_cell": {
                'type':tensorflow.contrib.cudnn_rnn.CudnnCompatibleGRUCell,
-              'kwargs': {'num_units': 256},
+              'kwargs': {'num_units': 512},
               'num_layers': 2,
               'dropout': {'input_keep_prob': 1.0,
               'output_keep_prob': 0.5,
               'state_keep_prob': 1,
               'variational_recurrent': True,
-              'input_size': [emb_hparams['dim'] + 1, 256],
+              'input_size': [emb_hparams['dim'] + 1, 512],
               '@no_typecheck': ['input_keep_prob',
               'output_keep_prob',
               'state_keep_prob']},
@@ -338,13 +340,13 @@ clas_hparams = {
 
         "rnn_cell": {
                'type':tensorflow.contrib.cudnn_rnn.CudnnCompatibleGRUCell,
-              'kwargs': {'num_units': 256},
+              'kwargs': {'num_units': 512},
               'num_layers': 2,
               'dropout': {'input_keep_prob': 1.0,
               'output_keep_prob': 0.5,
               'state_keep_prob': 1,
               'variational_recurrent': True,
-              'input_size': [emb_hparams['dim'], 256],
+              'input_size': [emb_hparams['dim'], 512],
               '@no_typecheck': ['input_keep_prob',
               'output_keep_prob',
               'state_keep_prob']},
@@ -452,8 +454,8 @@ c_opt_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-8,
-            "learning_rate": 0.001
+            'weight_decay' : 1e-3,
+            "learning_rate": 0.0001
         }
     },
     "learning_rate_decay": {
@@ -475,8 +477,8 @@ d_opt_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-8,
-            "learning_rate": 0.001,
+            'weight_decay' : 1e-3,
+            "learning_rate": 0.0001,
         }
     },
     "learning_rate_decay": {
