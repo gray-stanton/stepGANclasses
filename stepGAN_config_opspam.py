@@ -1,15 +1,16 @@
 import tensorflow
 
 # Overarching
-clas_test = False
+clas_test = True
+clas_test_ckpt = '/home/gray/code/stepGAN/opspam/ckpt-gen'
 
 # Saving/logging Config
 restore_model= False
 clear_run_logs = True
 log_dir='/home/gray/code/stepGAN/opspam/logs'
 checkpoint_dir='/home/gray/code/stepGAN/opspam/ckpt'
-save_trained_gen = True
-load_trained_gen = False
+save_trained_gen = False
+load_trained_gen = True
 gen_ckpt_dir = '/home/gray/code/stepGAN/opspam/'
 gen_ckpt_file = '/home/gray/code/stepGAN/opspam/ckpt-gen'
 log_verbose_mle = True
@@ -21,11 +22,11 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 70 # 70
-d_pretrain_epochs = 85 # 85
+g_pretrain_epochs = 1# 60
+d_pretrain_epochs = 100 # 85
 d_pretrain_critic_epochs = 20 #20
 div_pretrain_epochs = 0
-c_pretrain_epochs = 55 # 55
+c_pretrain_epochs = 65 # 55
 adversarial_epochs = 50
 
 disc_adv = 25
@@ -73,18 +74,18 @@ max_pg_loss = 20
 add_sentence_progress = True
 
 clas_loss_on_fake_lambda = 0.5 # Balancing param on real/generated clas
-disc_crit_train_on_fake_only = True
-clas_crit_train_on_fake_only = True
+disc_crit_train_on_fake_only = False
+clas_crit_train_on_fake_only = False
 use_alt_disc_loss = False
 use_alt_disc_reward = False
 use_sigmoided_rewards = False
 
 reward_blending = 'additive'
 
-clas_min_ent_lambda = 0.5
+clas_min_ent_lambda = 0.3
 
 clas_has_own_embedder = True
-disc_has_own_embedder = False
+disc_has_own_embedder = True
 
 # Different loss functions
 mle_loss_in_adv = True
@@ -197,7 +198,7 @@ test_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : './opspam_test_labels_.txt',
+            'files' : './opspam_test_labels.txt',
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -250,7 +251,7 @@ emb_hparams = {
         "type": "L1L2",
         "kwargs": {
             "l1": 0.,
-            "l2": 0.
+            "l2": 0
         }
     },
     "name": "word_embedder",
@@ -298,12 +299,12 @@ disc_hparams = {
         "rnn_cell": {
                'type':tensorflow.contrib.cudnn_rnn.CudnnCompatibleGRUCell,
               'kwargs': {'num_units': 512},
-              'num_layers': 2,
-              'dropout': {'input_keep_prob': 1.0,
-              'output_keep_prob': 0.5,
+              'num_layers': 1,
+              'dropout': {'input_keep_prob': 0.7,
+              'output_keep_prob': 0.6,
               'state_keep_prob': 1,
               'variational_recurrent': True,
-              'input_size': [emb_hparams['dim'] + 1, 512],
+              'input_size': [emb_hparams['dim'] + 1],
               '@no_typecheck': ['input_keep_prob',
               'output_keep_prob',
               'state_keep_prob']},
@@ -318,8 +319,8 @@ disc_hparams = {
             "final_layer_activation": None,
             "other_dense_kwargs": None,
             "dropout_layer_ids": [],
-            "dropout_rate": 0.5,
-            "variational_dropout": True 
+            "dropout_rate": 1.0,
+            "variational_dropout": False
         },
         'name' : 'discriminator',
         
@@ -409,7 +410,7 @@ g_opt_mle_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-3,
+            'weight_decay' : 5e-3,
             "learning_rate": 0.001
         }
     },
@@ -432,7 +433,7 @@ g_opt_pg_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-15,
+            'weight_decay' : 1e-7,
             "learning_rate": 0.00005
         }
     },
@@ -455,7 +456,7 @@ c_opt_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 5e-3,
+            'weight_decay' : 1e-3,
             "learning_rate": 0.0001
         }
     },
@@ -478,7 +479,7 @@ d_opt_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-3,
+            'weight_decay' : 1e-5,
             "learning_rate": 0.0001,
         }
     },
