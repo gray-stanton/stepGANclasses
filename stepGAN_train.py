@@ -219,7 +219,7 @@ def main(_):
         
         # Discriminator
         if config.disc_has_own_embedder:
-            disc_embedder_model = Embedder(vocab_size, config.emb_hparams)
+            disc_embedder_model = Embedder(vocab_size, config.disc_emb_hparams)
             disc_embedder = disc_embedder_model.embedder
             copy_embedder_weights = disc_embedder.embedding.assign(embedder.embedding)
         else:
@@ -232,6 +232,12 @@ def main(_):
         classifier_dropout = tf.placeholder(dtype=tf.string)
         clas_model = RNNClassifier(config.clas_hparams, classifier_dropout)
         classifier = clas_model.encoder
+        if config.clas_has_own_embedder: 
+            clas_emb_model = Embedder(vocab_size, config.clas_emb_hparams)
+            clas_embedder = clas_emb_model.embedder
+            clas_copy_embedder_weights = clas_embedder.embedding.assign(embedder.embedding)
+        else:
+            clas_embedder = embedder
 
         # Diversifier
         div_model = RNNDiversifier(vocab_size, config.div_hparams) # identical to generator
@@ -247,7 +253,6 @@ def main(_):
         # Pre-train Generator subgraph
         with g.name_scope('gen_mle'):
             inp_emb = embedder(inp)
-            label_inp_emb = embedder(label_inp)
 
             x = inp[:, 0:(tf.shape(inp)[1] -2)]
             x_emb = embedder(x)
@@ -419,8 +424,8 @@ def main(_):
             fake_seq = gen_sample_ids
             real_seq = inp[:, 1:-1] # remove BOS EOS token as fake does not have.
             real_seq_lengths = tf.clip_by_value(seq_lengths, 0, tf.shape(real_seq)[1])
-            real_inp = disc_embedder(real_seq)
-            fake_inp = disc_embedder(fake_seq)
+            real_inp = disc_embedder(real_seq, mode=discriminator_dropout)
+            fake_inp = disc_embedder(fake_seq, mode=discriminator_dropout)
 
             fake_seq = fake_seq[:, :max_length]
             real_seq = real_seq[:, :max_length]
@@ -608,15 +613,11 @@ def main(_):
         with g.name_scope("clas_train"):
             clas_use_fake_data = tf.placeholder(tf.bool)
             logger.info("Creating classifier training subgraph...")
-            if config.clas_has_own_embedder: 
-                clas_emb_model = Embedder(vocab_size, config.emb_hparams)
-                clas_embedder = clas_emb_model.embedder
-                clas_copy_embedder_weights = clas_embedder.embedding.assign(embedder.embedding)
 
             # Designate clas input
             real_label_inp = label_inp[:, 1:-1]
-            real_label_inp_emb = label_inp_emb[:, 1:-1, :]
-            fake_label_inp_emb = clas_embedder(fake_seq)
+            real_label_inp_emb = clas_embedder(real_label_inp, mode=classifier_dropout)
+            fake_label_inp_emb = clas_embedder(fake_seq, mode=classifier_dropout)
             
             real_label_inp = real_label_inp[:, :max_length]
             real_label_inp_emb = real_label_inp_emb[:, :max_length, :]
@@ -624,18 +625,18 @@ def main(_):
 
             # Pass through classifier
             r_clas_q_logit, _, r_clas_cell_outputs = classifier(
-                real_label_inp_emb, sequence_length= label_seq_lengths, return_cell_output=True)
+                real_label_inp_emb, sequence_length= label_seq_lengths,mode=classifier_dropout, return_cell_output=True)
             f_clas_q_logit, _, f_clas_cell_outputs = classifier(
-                fake_label_inp_emb, sequence_length = gen_lengths, return_cell_output=True)
+                fake_label_inp_emb, sequence_length = gen_lengths,mode=classifier_dropout, return_cell_output=True)
 
+            r_clas_q_logit_sq = tf.squeeze(r_clas_q_logit)
+            f_clas_q_logit_sq = tf.squeeze(f_clas_q_logit)
             # Random stopping
             if config.classifier_random_stopping:
                 r_u = tf.distributions.Uniform(low=1.0, high=tf.cast(label_seq_lengths, tf.float32))
                 f_u = tf.distributions.Uniform(low=1.0, high=tf.cast(gen_lengths, tf.float32))
                 r_stopping_indices = tf.squeeze(tf.round(r_u.sample(1)))
                 f_stopping_indices = tf.squeeze(tf.round(f_u.sample(1)))
-                r_clas_q_logit_sq = tf.squeeze(r_clas_q_logit)
-                f_clas_q_logit_sq = tf.squeeze(f_clas_q_logit)
                 r_clas_score = tx.losses.mask_and_reduce(r_clas_q_logit_sq,
                                                   r_stopping_indices,
                                                   average_across_batch=False,
@@ -745,16 +746,17 @@ def main(_):
 
             r_probs = tf.math.sigmoid(r_clas_score)
             f_probs = tf.math.sigmoid(f_clas_score)
-            r_preds = tf.round(r_probs)
-            f_preds = tf.round(f_probs)
-            r_clas_acc = tf.reduce_mean(tf.metrics.accuracy(
-                r_preds, data_labels))
-            f_clas_acc = tf.reduce_mean(tf.metrics.accuracy(
-                f_preds, random_class_labels))
+            r_preds = tf.cast(tf.round(r_probs), tf.int32)
+            f_preds = tf.cast(tf.round(f_probs), tf.int32)
+            random_class_labels_ints = tf.cast(random_class_labels, tf.int32)
+            r_clas_acc = tf.contrib.metrics.accuracy(
+                r_preds, data_labels)
+            f_clas_acc = tf.contrib.metrics.accuracy(
+                f_preds, random_class_labels_ints)
             r_clas_prec = tf.reduce_mean(tf.metrics.precision(
                 r_preds, data_labels))
             f_clas_prec = tf.reduce_mean(tf.metrics.precision(
-                f_preds, random_class_labels))
+                f_preds, random_class_labels_ints))
             r_clas_recl = tf.reduce_mean(tf.metrics.recall(
                 r_preds, data_labels))
             f_clas_recl = tf.reduce_mean(tf.metrics.recall(
@@ -1364,8 +1366,13 @@ def main(_):
                     }
                     if disc_step % config.batches_per_summary == 0:
                         fetches['summaries'] = disc_summaries
-                feed_dict = {global_mode : modekey,
-                             discriminator_dropout : tf.estimator.ModeKeys.TRAIN}
+
+                if mode_string == 'train' or mode_string == 'pretrain':
+                    feed_dict = {global_mode : modekey,
+                                 discriminator_dropout : tf.estimator.ModeKeys.TRAIN}
+                else:
+                    feed_dict = {global_mode : modekey,
+                                 discriminator_dropout : tf.estimator.ModeKeys.EVAL}
                 rtns = sess.run(fetches, feed_dict=feed_dict)
                 glob_step = rtns['global_step']
                 loss = rtns['disc_loss']
@@ -1527,9 +1534,14 @@ def main(_):
                         'global_step' : global_step,
                         'summaries' : val_clas_summaries
                     }
-                
-                feed_dict = {global_mode: modekey,
-                             classifier_dropout : tf.estimator.ModeKeys.TRAIN}
+                if mode_string == 'train' or mode_string == 'pretrain':
+                    feed_dict = {global_mode: modekey,
+                                 classifier_dropout : tf.estimator.ModeKeys.TRAIN,
+                                 discriminator_dropout : tf.estimator.ModeKeys.TRAIN} # TODO FIGURE OUT WHY NEC
+                else:
+                    feed_dict = {global_mode: modekey,
+                                 classifier_dropout : tf.estimator.ModeKeys.EVAL,
+                                 discriminator_dropout : tf.estimator.ModeKeys.EVAL}
                 if mode_string == 'pretrain':
                     feed_dict[clas_use_fake_data] = False
                 elif mode_string == 'train':
@@ -1541,6 +1553,7 @@ def main(_):
                 glob_step = rtns['global_step']
                 loss = rtns['clas_loss']
                 r_loss = rtns['real_loss']
+                acc = rtns['r_clas_acc']
 
                 if  clas_step % config.batches_per_summary == 0:
                     writer.add_summary(
@@ -1558,7 +1571,7 @@ def main(_):
 
 
 
-                if clas_step % config.batches_per_text_summary == 0 and mode_string == 'train' or mode_string == 'pretrain':
+                if clas_step % config.batches_per_text_summary == 0 and mode_string == 'train' :
                     r_header = ['tkn', 'logit']
                     f_header = ['tkn', 'logit', 'V_c']
                     r_values = [list(vocab.map_ids_to_tokens_py(rtns['real_sentence'])),
@@ -1577,6 +1590,16 @@ def main(_):
                     fl.debug('FAKE SENTENCE')
                     print_out_array(f_header, f_values, fl, f_final_line)
 
+                if clas_step % config.batches_per_text_summary == 0 and mode_string == 'pretrain':
+                    r_header = ['tkn', 'logit']
+                    f_header = ['tkn', 'logit', 'V_c']
+                    r_values = [list(vocab.map_ids_to_tokens_py(rtns['real_sentence'])),
+                                rtns['r_clas_q_logit'].squeeze().tolist()
+                               ]
+                    fl.debug('REAL SENTENTCE')
+                    r_final_line = 'class: {} r_clas_loss: {:0.02f} r_clas_score: {:0.02f}'.format(
+                        rtns['real_class'], rtns['real_loss'], rtns['r_clas_score'])
+                    print_out_array(r_header, r_values, fl, r_final_line)
                 if mode_string == 'test':
                     header = ['tkn', 'logit']
                     nsent = rtns['real_sentence'].shape[0]
@@ -1587,7 +1610,7 @@ def main(_):
                         test_sent_count += 1
                         fl.debug('TEST SENT {}'.format(test_sent_count))
                         final_lines = ('class: {} r_clas_loss {:0.02f} r_clas_score {:0.02f}'
-                                       'r_clas_acc {0.02f} r_clas_f1 {0.02f}').format(
+                                       'r_clas_acc {:0.02f} r_clas_f1 {:0.02f}').format(
                                            rtns['real_class'][i], rtns['real_loss'], rtns['r_clas_score'][i],
                                            rtns['r_clas_acc'], rtns['r_clas_f1'])
 
@@ -1613,7 +1636,7 @@ def main(_):
                 end_time = time.time()
                 per_step_time = round(end_time - start_time, 2)
                 progbar.update(nexamples,
-                               [('loss', loss), ('batch_time', per_step_time)]) 
+                               [('loss', loss), ('batch_time', per_step_time), ('acc', acc)] )
             
             except tf.errors.OutOfRangeError:
                 break
@@ -1740,7 +1763,7 @@ def main(_):
             min_clas_val_loss = 1e8
             patience = 0
             clas_rtns = {'step' : 0, 'real_acc': 0}
-            if config.clas_has_own_embedder:
+            if config.clas_has_own_embedder and False:
                 sess.run(clas_copy_embedder_weights)
             for e in range(config.c_pretrain_epochs):
                 logger.info('\nClas Pretrain Epoch {}'.format(e))
@@ -1748,6 +1771,7 @@ def main(_):
                 print('\n Clas Validate Pretrain Epoch {}'.format(e))
                 clas_rtns = clas_run_epoch(
                     sess, 'val', sum_writer, clas_rtns['step'])
+                print(clas_rtns)
                 checkpoint.save(sess, checkpoint_prefix)
                 if clas_rtns['loss'] < (min_clas_val_loss - config.clas_es_tolerance):
                     min_clas_val_loss = clas_rtns['loss']

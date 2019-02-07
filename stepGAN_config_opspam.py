@@ -1,16 +1,16 @@
 import tensorflow
 
 # Overarching
-clas_test = True
-clas_test_ckpt = '/home/gray/code/stepGAN/opspam/ckpt-gen'
+clas_test = False
+clas_test_ckpt = '/home/gray/code/stepGAN/opspam/ckptclas/ckpt-all'
 
 # Saving/logging Config
 restore_model= False
 clear_run_logs = True
 log_dir='/home/gray/code/stepGAN/opspam/logs'
-checkpoint_dir='/home/gray/code/stepGAN/opspam/ckpt'
+checkpoint_dir='/home/gray/code/stepGAN/opspam/ckptclas'
 save_trained_gen = False
-load_trained_gen = True
+load_trained_gen = False
 gen_ckpt_dir = '/home/gray/code/stepGAN/opspam/'
 gen_ckpt_file = '/home/gray/code/stepGAN/opspam/ckpt-gen'
 log_verbose_mle = True
@@ -22,12 +22,12 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 1# 60
-d_pretrain_epochs = 100 # 85
-d_pretrain_critic_epochs = 20 #20
+g_pretrain_epochs = 0# 60
+d_pretrain_epochs = 0 # 85
+d_pretrain_critic_epochs = 0 #20
 div_pretrain_epochs = 0
-c_pretrain_epochs = 65 # 55
-adversarial_epochs = 50
+c_pretrain_epochs = 30# 55
+adversarial_epochs = 0
 
 disc_adv = 25
 clas_adv = 15
@@ -52,7 +52,7 @@ use_unsup=False
 sampling_temperature = 1.0
 
 annealing_length = 0
-adversarial_length = 48
+adversarial_length = 0
 
 linear_decay_pg_weights = False
 
@@ -96,8 +96,8 @@ diversifier_loss_lambda = 0
 diversity_discount = 1
 classifier_loss_lambda = 0.5
 norm_advantages = True
-discriminator_random_stopping = True
-classifier_random_stopping = True
+discriminator_random_stopping = False
+classifier_random_stopping = False
 let_discriminator_train_embedder = True
 
 bleu_test = False
@@ -176,7 +176,7 @@ test_data = {
     "num_epochs": 1,
     "batch_size": 64,
     "allow_smaller_final_batch": True,
-    "shuffle": True,
+    "shuffle": False,
     "shuffle_buffer_size": None,
     "shard_and_shuffle": False,
     "num_parallel_calls": 1,
@@ -235,7 +235,7 @@ unsup_data = {
 # EMBEDDER HPARAMS
 
 emb_hparams = {
-    "dim": 200,
+    "dim": 50,
     "dropout_rate": 0.0,
     "dropout_strategy": 'element',
     "trainable": True,
@@ -254,8 +254,56 @@ emb_hparams = {
             "l2": 0
         }
     },
-    "name": "word_embedder",
+    "name": "gen_embedder",
 }
+
+disc_emb_hparams = {
+    "dim": 50,
+    "dropout_rate": 0.2,
+    "dropout_strategy": 'element',
+    "trainable": True,
+    "initializer": {
+        "type": "random_uniform_initializer",
+        "kwargs": {
+            "minval": -0.1,
+            "maxval": 0.1,
+            "seed": None
+        }
+    },
+    "regularizer": {
+        "type": "L1L2",
+        "kwargs": {
+            "l1": 0.,
+            "l2": 0
+        }
+    },
+    "name": "disc_embedder",
+}
+
+
+clas_emb_hparams = {
+    "dim": 50,
+    "dropout_rate": 0.2,
+    "dropout_strategy": 'element',
+    "trainable": True,
+    "initializer": {
+        "type": "random_uniform_initializer",
+        "kwargs": {
+            "minval": -0.1,
+            "maxval": 0.1,
+            "seed": None
+        }
+    },
+    "regularizer": {
+        "type": "L1L2",
+        "kwargs": {
+            "l1": 0.,
+            "l2": 0
+        }
+    },
+    "name": "clas_embedder",
+}
+
 
 # GENERATOR HPARAMS
 g_decoder_hparams = {
@@ -342,13 +390,13 @@ clas_hparams = {
 
         "rnn_cell": {
                'type':tensorflow.contrib.cudnn_rnn.CudnnCompatibleGRUCell,
-              'kwargs': {'num_units': 512},
-              'num_layers': 2,
+              'kwargs': {'num_units': 128},
+              'num_layers': 1,
               'dropout': {'input_keep_prob': 1.0,
               'output_keep_prob': 0.5,
               'state_keep_prob': 1,
               'variational_recurrent': True,
-              'input_size': [emb_hparams['dim'], 512],
+              'input_size': [emb_hparams['dim']],
               '@no_typecheck': ['input_keep_prob',
               'output_keep_prob',
               'state_keep_prob']},
@@ -456,7 +504,7 @@ c_opt_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-3,
+            'weight_decay' : 1e-8,
             "learning_rate": 0.0001
         }
     },
