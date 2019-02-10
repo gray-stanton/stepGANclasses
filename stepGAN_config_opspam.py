@@ -8,11 +8,8 @@ clas_test_ckpt = '/home/gray/code/stepGAN/opspam/ckptclas/ckpt-all'
 restore_model= False
 clear_run_logs = True
 log_dir='/home/gray/code/stepGAN/opspam/logs'
-checkpoint_dir='/home/gray/code/stepGAN/opspam/ckptclas'
-save_trained_gen = False
-load_trained_gen = False
-gen_ckpt_dir = '/home/gray/code/stepGAN/opspam/'
-gen_ckpt_file = '/home/gray/code/stepGAN/opspam/ckpt-gen'
+checkpoint_dir='/home/gray/code/stepGAN/opspam/ckpt'
+load_checkpoint_file = '/home/gray/code/stepGAN/opspam/ckpt/ckpt-preadv'
 log_verbose_mle = True
 log_verbose_rl = True
 batches_per_summary = 10
@@ -22,15 +19,19 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 0# 60
-d_pretrain_epochs = 0 # 85
-d_pretrain_critic_epochs = 0 #20
+g_pretrain_epochs = 50# 60
+d_pretrain_epochs = 50# 60
+d_pretrain_critic_epochs = 15 #20
 div_pretrain_epochs = 0
-c_pretrain_epochs = 30# 55
-adversarial_epochs = 0
+c_pretrain_epochs = 0 # 20
+preadversarial_epochs = 20
+adversarial_epochs = 250
 
 disc_adv = 25
-clas_adv = 15
+clas_adv = 7
+gen_adv_epoch = 4
+gen_mle_adv_epoch = 2
+
 
 # Training configs
 min_disc_pg_acc = 0.85 # Train disc in PG when acc less than
@@ -51,8 +52,8 @@ max_decoding_length_infer = 128
 use_unsup=False
 sampling_temperature = 1.0
 
-annealing_length = 0
-adversarial_length = 0
+annealing_length = 128
+adversarial_length = 64
 
 linear_decay_pg_weights = False
 
@@ -66,16 +67,16 @@ advantage_var_reduc = 1
 
 # Training tweaks
 disc_label_smoothing_epsilon = 0.05
-adv_max_clip = 5
+adv_max_clip = 100
 min_log_prob = 0.1
 max_log_prob = 100
-min_pg_loss = -20
-max_pg_loss = 20
+min_pg_loss = -200
+max_pg_loss = 200
 add_sentence_progress = True
 
 clas_loss_on_fake_lambda = 0.5 # Balancing param on real/generated clas
-disc_crit_train_on_fake_only = False
-clas_crit_train_on_fake_only = False
+disc_crit_train_on_fake_only = True
+clas_crit_train_on_fake_only = True
 use_alt_disc_loss = False
 use_alt_disc_reward = False
 use_sigmoided_rewards = False
@@ -94,7 +95,7 @@ pg_max_ent_lambda = 0
 discriminator_loss_lambda = 1
 diversifier_loss_lambda = 0
 diversity_discount = 1
-classifier_loss_lambda = 0.5
+classifier_loss_lambda = 0
 norm_advantages = True
 discriminator_random_stopping = False
 classifier_random_stopping = False
@@ -236,7 +237,7 @@ unsup_data = {
 
 emb_hparams = {
     "dim": 50,
-    "dropout_rate": 0.0,
+    "dropout_rate": 0.2,
     "dropout_strategy": 'element',
     "trainable": True,
     "initializer": {
@@ -249,7 +250,7 @@ emb_hparams = {
     },
     "regularizer": {
         "type": "L1L2",
-        "kwargs": {
+       "kwargs": {
             "l1": 0.,
             "l2": 0
         }
@@ -259,7 +260,7 @@ emb_hparams = {
 
 disc_emb_hparams = {
     "dim": 50,
-    "dropout_rate": 0.2,
+    "dropout_rate": 0.4,
     "dropout_strategy": 'element',
     "trainable": True,
     "initializer": {
@@ -346,10 +347,10 @@ disc_hparams = {
 
         "rnn_cell": {
                'type':tensorflow.contrib.cudnn_rnn.CudnnCompatibleGRUCell,
-              'kwargs': {'num_units': 512},
+              'kwargs': {'num_units': 128},
               'num_layers': 1,
               'dropout': {'input_keep_prob': 0.7,
-              'output_keep_prob': 0.6,
+              'output_keep_prob': 0.5,
               'state_keep_prob': 1,
               'variational_recurrent': True,
               'input_size': [emb_hparams['dim'] + 1],

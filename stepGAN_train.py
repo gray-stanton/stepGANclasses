@@ -14,10 +14,11 @@ config = importlib.import_module('stepGAN_config_opspam')
 
 class Generator(tf.keras.Model):
     """Generator wrapper for checkpointing"""
-    def __init__(self, vocab_size, decoder_config):
+    def __init__(self, vocab_size, decoder_config, dropout):
         super(Generator, self).__init__()
         self.decoder = tx.modules.BasicRNNDecoder(vocab_size=vocab_size,
-                                                  hparams=decoder_config)
+                                                  hparams=decoder_config,
+                                                  cell_dropout_mode=dropout)
 
 
 class RNNDiscriminator(tf.keras.Model):
@@ -209,10 +210,11 @@ def main(_):
         
         logger.info("Building model components...")
         # Embedding
-        emb_model = Embedder(vocab_size, config.emb_hparams)
+        generator_dropout = tf.placeholder(tf.string)
+        emb_model = Embedder(vocab_size, config.emb_hparams )
         embedder = emb_model.embedder
         # Generator
-        gen_model = Generator(vocab_size, config.g_decoder_hparams)
+        gen_model = Generator(vocab_size, config.g_decoder_hparams, generator_dropout)
         g_decoder = gen_model.decoder
         initial_state = g_decoder.zero_state(batch_size = batch_size,
                                              dtype=tf.float32)
@@ -252,19 +254,28 @@ def main(_):
         logger.info("Creating Generator MLE training subgraph...")
         # Pre-train Generator subgraph
         with g.name_scope('gen_mle'):
-            inp_emb = embedder(inp)
+            inp_emb = embedder(inp, mode=generator_dropout)
 
             x = inp[:, 0:(tf.shape(inp)[1] -2)]
-            x_emb = embedder(x)
+            x_emb = embedder(x, mode=generator_dropout)
             y = inp[:, 1:(tf.shape(inp)[1])-1]
             y_onehot = tf.one_hot(y, vocab_size)
 
             x_lengths = tf.clip_by_value(seq_lengths, 0, tf.shape(x)[1]) # Trim non-ending sentences. 
 
-            context_size = config.noise_size + 1
-            zero_context = tf.zeros((batch_size, context_size))
+            context_size = config.noise_size
+            # TODO should respect labeled classes
+            context = tf.random.normal((batch_size, context_size))
+            if not config.use_unsup:
+                true_classes = tf.cast(data_labels, tf.float32)
+            else: 
+                # For unsupervised, with no known class, give 0.5 as input
+                true_classes = tf.concat([tf.cast(data_labels, tf.float32),
+                                          tf.tile(0.5, tf.shape(unsup_batch)[0])], axis=0)
+
+            context = tf.concat([context, tf.expand_dims(true_classes, -1)], axis=1)
             tiled_context = tf.reshape(
-                tf.tile(zero_context, [1, tf.shape(x)[1]]), [-1, tf.shape(x)[1], context_size])
+                tf.tile(context, [1, tf.shape(x)[1]]), [-1, tf.shape(x)[1], context_size + 1])
             x_emb_context = tf.concat([x_emb, tiled_context], axis = -1)
             
             outputs_mle, _, _ = g_decoder(
@@ -272,6 +283,7 @@ def main(_):
                 decoding_strategy='train_greedy',
                 embedding=None,
                 inputs=x_emb_context,
+                mode=generator_dropout,
                 sequence_length=x_lengths)
             
             logits_mle = outputs_mle.logits
@@ -353,7 +365,7 @@ def main(_):
             if config.use_beam_search:
                 beam_width = config.beam_width
                 def context_embedder(x):
-                    raw_y = embedder(x)
+                    raw_y = embedder(x, mode=generator_dropout)
                     context_size = config.noise_size + 1
                     rv = tf.reshape(tf.tile(random_vector, [1, beam_width]), 
                                     [-1, beam_width, context_size])
@@ -375,6 +387,7 @@ def main(_):
             else:
                 gen_outputs, _, gen_lengths = g_decoder(
                     helper = context_helper,
+                    mode = generator_dropout,
                     initial_state = initial_state,
                     max_decoding_length = max_length)
                 gen_logits = gen_outputs.logits
@@ -390,8 +403,8 @@ def main(_):
             
             mean_max_logit = tf.reduce_mean(tf.reduce_max(gen_logits, axis = -1))
             mean_min_logit = tf.reduce_mean(tf.reduce_min(gen_logits, axis = -1))
-            median_logit = tf.reduce_mean(
-                tf.contrib.distributions.percentile(gen_logits, q=50, axis=-1))
+            #median_logit = tf.reduce_mean(
+            #    tf.contrib.distributions.percentile(gen_logits, q=50, axis=-1))
             mean_logit_gen = tf.reduce_mean(gen_logits)
             logit_sd_gen = tf.sqrt(tf.reduce_mean(tf.square(gen_logits)) -\
                                    tf.square(mean_logit_gen))
@@ -407,7 +420,7 @@ def main(_):
 
             tf.summary.scalar("mean_max_logit", mean_max_logit)
             tf.summary.scalar("mean_min_logit", mean_min_logit)
-            tf.summary.scalar('median_logit', median_logit)
+            #tf.summary.scalar('median_logit', median_logit)
             tf.summary.scalar('logit_sd', logit_sd_gen)
             tf.summary.scalar('mean_length', mean_length)
             tf.summary.scalar('max_length', max_gen_length)
@@ -577,13 +590,13 @@ def main(_):
 
             r_probs = tf.math.sigmoid(r_disc_score)
             f_probs = tf.math.sigmoid(f_disc_score)
-            r_preds = tf.round(r_probs)
-            f_preds = tf.round(f_probs)
+            r_preds = tf.cast(tf.round(r_probs), tf.int32)
+            f_preds = tf.cast(tf.round(f_probs), tf.int32)
             mean_r_disc_score = tf.reduce_mean(r_disc_score)
             mean_f_disc_score = tf.reduce_mean(f_disc_score)
             mean_r_prob = tf.reduce_mean(r_probs)
             mean_f_prob = tf.reduce_mean(f_probs)
-            disc_acc = tf.reduce_mean(tf.metrics.accuracy(
+            disc_acc = tf.reduce_mean(tf.contrib.metrics.accuracy(
                 tf.concat([r_preds, f_preds], axis=0), 
                 tf.concat([tf.ones_like(r_preds), tf.zeros_like(f_preds)], axis=0)))
             mean_f_disc_crit_baselines = tf.reduce_mean(f_disc_crit_baselines)
@@ -912,6 +925,10 @@ def main(_):
             clas_rewards = tf.where(tf.squeeze(tf.cast(random_classes, tf.bool)),
                                     f_clas_q_logit, # Random class is 1
                                     -f_clas_q_logit) # Random class is 0
+            # Flip baselines to match
+            clas_baseline = tf.where(tf.squeeze(tf.cast(random_classes, tf.bool)),
+                                     clas_baseline, # random clas is 1
+                                     -clas_baseline) # random class is 0
                                      
 
             if config.use_sigmoided_rewards:
@@ -921,7 +938,7 @@ def main(_):
                 clas_baseline = tf.nn.sigmoid(clas_baseline)
             #advantages = tf.squeeze(tf.zeros_like(log_probs))
             #rewards = tf.squeeze(tf.zeros_like(log_probs))
-            if config.classifier_loss_lambda >0:
+            if config.classifier_loss_lambda >0 and config.reward_blending == 'additive':
                 rewards = tf.nn.sigmoid(disc_rewards) + config.classifier_loss_lambda * tf.nn.sigmoid(clas_rewards)
                 advantages = tf.nn.sigmoid(disc_rewards) - tf.nn.sigmoid(disc_baseline)  +\
                     config.classifier_loss_lambda * (tf.nn.sigmoid(clas_rewards) - tf.nn.sigmoid(clas_baseline))
@@ -942,14 +959,14 @@ def main(_):
                     advantages = advantages + config.diversifier_loss_lambda * (div_rewards)
                 
             if config.reward_blending == 'f1':
-                rewards = tf.multiply(config.discriminator_loss_lambda * disc_rewards,
-                                      config.classifier_loss_lambda * clas_rewards)
-                rewards = tf.divide(rewards, (config.discriminator_loss_lambda * disc_rewards + 
-                                              config.classifier_loss_lambda * clas_rewards))
-                baseline = tf.multiply(config.discriminator_loss_lambda * disc_baseline,
-                                       config.classifier_loss_lambda * clas_rewards)
-                baseline = tf.divide(baseline, (config.discriminator_loss_lambda * disc_baseline + 
-                                                config.classifier_loss_lambda * clas_baseline))
+                rewards = tf.multiply(config.discriminator_loss_lambda * tf.nn.sigmoid(disc_rewards),
+                                      config.classifier_loss_lambda * tf.nn.sigmoid(clas_rewards))
+                rewards = tf.divide(rewards, (config.discriminator_loss_lambda * tf.nn.sigmoid(disc_rewards) + 
+                                              config.classifier_loss_lambda * tf.nn.sigmoid(clas_rewards)))
+                baseline = tf.multiply(config.discriminator_loss_lambda * tf.nn.sigmoid(disc_baseline),
+                                       config.classifier_loss_lambda * tf.nn.sigmoid(clas_baseline))
+                baseline = tf.divide(baseline, (config.discriminator_loss_lambda * tf.nn.sigmoid(disc_baseline) + 
+                                                config.classifier_loss_lambda *  tf.nn.sigmoid(clas_baseline)))
                 advantages = rewards - baseline
             advantages = tf.squeeze(advantages)
             if config.norm_advantages:
@@ -1011,7 +1028,7 @@ def main(_):
 
 
             pg_loss.set_shape(())
-            pg_variables = tx.utils.collect_trainable_variables([g_decoder])
+            pg_variables = tx.utils.collect_trainable_variables([g_decoder, embedder])
             pg_optimizer = tx.core.get_optimizer(global_step=global_step,
                                                  hparams=config.g_opt_pg_hparams)
 
@@ -1039,6 +1056,43 @@ def main(_):
             pg_summaries = tf.summary.merge_all(scope='pg_train')
             pg_summaries = tf.summary.merge([gen_sample_summaries, pg_summaries])
     # END GRAPH 
+
+
+    # Summary slicing ops
+            y_sl = y[0, :]
+            observed_logits_sl = observed_logits[0, :]
+            loss_mle_full_sl = loss_mle_full[0, :]
+
+            gen_sample_ids_sl = gen_sample_ids[0, :]
+            observed_gen_logits_sl = observed_gen_logits[0, :]
+            log_probs_sl= log_probs[0, :]
+            disc_rewards_sl = disc_rewards[0, :]
+            clas_rewards_sl = clas_rewards[0, :]
+            disc_baseline_sl = disc_baseline[0, :]
+            clas_baseline_sl = clas_baseline[0, :]
+            rewards_sl = rewards[0, :]
+            advantages_sl = advantages[0, :]
+            pg_loss_full_sl = pg_loss_full[0, :]
+
+            fake_seq_sl = fake_seq[0, :]
+            real_seq_sl = real_seq[0, :]
+            r_disc_q_logit_sl = r_disc_q_logit[0, :]
+            f_disc_q_logit_sl = f_disc_q_logit[0, :]
+            r_disc_score_sl = r_disc_score[0, 0]
+            f_disc_score_sl = f_disc_score[0, 0]
+            r_disc_crit_baselines_sl = r_disc_crit_baselines[0, :]
+
+            real_label_inp_sl = real_label_inp[0, :]
+            r_clas_q_logit_sl = r_clas_q_logit[0, :]
+            f_clas_q_logit_sl = f_clas_q_logit[0, :]
+            r_clas_score_sl = r_clas_score[0]
+            f_clas_score_sl = f_clas_score[0]
+
+            r_clas_crit_baselines_sl = r_clas_crit_baselines[0, :]
+            data_labels_sl = data_labels[0]
+            random_classes_sl = random_classes[0]
+
+
     
     # Epoch running
     def gen_run_epoch(sess, mode_string, writer):
@@ -1080,9 +1134,9 @@ def main(_):
                         fetches['summaries'] = mle_summaries
                     if gen_step % config.batches_per_text_summary == 0 and config.log_verbose_mle:
                         log_mle = True
-                        fetches['sentence'] = y[0, :]
-                        fetches['logits'] = observed_logits[0, :]
-                        fetches['full_cross_ent'] = loss_mle_full[0, :]
+                        fetches['sentence'] = y_sl
+                        fetches['logits'] = observed_logits_sl
+                        fetches['full_cross_ent'] = loss_mle_full_sl
                     
 
                 elif mode_string == 'train':
@@ -1098,16 +1152,16 @@ def main(_):
                         fetches['summaries'] = pg_summaries
                     if gen_step % config.batches_per_text_summary == 0 and config.log_verbose_rl:
                         log_rl = True
-                        fetches['sentence'] = gen_sample_ids[40, :]
-                        fetches['logits'] = observed_gen_logits[40, :]
-                        fetches['log_probs'] = log_probs[40, :]
-                        fetches['disc_reward'] = disc_rewards[40, :]
-                        fetches['clas_reward'] = clas_rewards[40, :]
-                        fetches['disc_crit'] = disc_baseline[40, :]
-                        fetches['clas_crit'] = clas_baseline[40, :]
-                        fetches['qvalues'] = rewards[40, :]
-                        fetches['advantages'] = advantages[40, :]
-                        fetches['pg_loss_full'] = pg_loss_full[40, :]
+                        fetches['sentence'] = gen_sample_ids_sl
+                        fetches['logits'] = observed_gen_logits_sl
+                        fetches['log_probs'] = log_probs_sl
+                        fetches['disc_reward'] = disc_rewards_sl
+                        fetches['clas_reward'] = clas_rewards_sl
+                        fetches['disc_crit'] = disc_baseline_sl
+                        fetches['clas_crit'] = clas_baseline_sl
+                        fetches['qvalues'] = rewards_sl
+                        fetches['advantages'] = advantages_sl
+                        fetches['pg_loss_full'] = pg_loss_full_sl
                     
                 elif mode_string == 'val':
                     fetches = {
@@ -1119,10 +1173,18 @@ def main(_):
                     if  gen_step % config.batches_per_summary == 0:
                         fetches['summaries'] = val_mle_summaries
 
-                feed_dict = {global_mode : modekey,
-                             discriminator_dropout : tf.estimator.ModeKeys.PREDICT,
-                             classifier_dropout : tf.estimator.ModeKeys.PREDICT}
-                rtns = sess.run(fetches, feed_dict=feed_dict)
+                if mode_string == 'train' or mode_string == 'pretrain':
+                    feed_dict = {global_mode : modekey,
+                                 generator_dropout : tf.estimator.ModeKeys.TRAIN,
+                                 discriminator_dropout : tf.estimator.ModeKeys.PREDICT,
+                                 classifier_dropout : tf.estimator.ModeKeys.PREDICT}
+                if mode_string == 'val': 
+                    feed_dict = {global_mode : modekey,
+                                generator_dropout : tf.estimator.ModeKeys.EVAL,
+                                discriminator_dropout : tf.estimator.ModeKeys.PREDICT,
+                                classifier_dropout : tf.estimator.ModeKeys.PREDICT}
+
+                rtns = sess.run(fetches, feed_dict=feed_dict, options=run_options)
                 glob_step = rtns['global_step']
                 loss = rtns['loss']
 
@@ -1130,7 +1192,7 @@ def main(_):
                 if gen_step % config.batches_per_summary == 0:
                     writer.add_summary(rtns['summaries'], glob_step)
                 if gen_step % config.batches_per_text_summary == 0:
-                    writer.add_summary(sess.run(sample_text_summary), glob_step)
+                    writer.add_summary(sess.run(sample_text_summary, {generator_dropout : tf.estimator.ModeKeys.EVAL}), glob_step)
                     writer.add_summary(sess.run(original_text_summary), glob_step)
                     # Write verbose Summaries
                     if mode_string == 'pretrain' and config.log_verbose_mle:
@@ -1332,16 +1394,16 @@ def main(_):
                     if disc_step % config.batches_per_summary == 0:
                         fetches['summaries'] = disc_summaries
                     if disc_step % config.batches_per_text_summary == 0:
-                        fetches['fake_sentence'] = fake_seq[0, :]
-                        fetches['real_sentence'] = real_seq[0, : ]
-                        fetches['r_disc_q_logit'] = r_disc_q_logit[0, :]
-                        fetches['f_disc_q_logit'] = f_disc_q_logit[0, :]
-                        fetches['r_disc_score'] = r_disc_score[0, 0]
-                        fetches['f_disc_score'] = f_disc_score[0, 0]
+                        fetches['fake_sentence'] = fake_seq_sl
+                        fetches['real_sentence'] = real_seq_sl
+                        fetches['r_disc_q_logit'] = r_disc_q_logit_sl
+                        fetches['f_disc_q_logit'] = f_disc_q_logit_sl
+                        fetches['r_disc_score'] = r_disc_score_sl
+                        fetches['f_disc_score'] = f_disc_score_sl
                         fetches['r_disc_loss']  = r_disc_loss
                         fetches['f_disc_loss']  = f_disc_loss
-                        fetches['disc_baseline'] =  disc_baseline[0, :]
-                        fetches['r_disc_baseline'] = r_disc_crit_baselines[0, :]
+                        fetches['disc_baseline'] =  disc_baseline_sl
+                        fetches['r_disc_baseline'] = r_disc_crit_baselines_sl
                         
                 if mode_string == 'val':
                     fetches = {
@@ -1369,15 +1431,18 @@ def main(_):
 
                 if mode_string == 'train' or mode_string == 'pretrain':
                     feed_dict = {global_mode : modekey,
+                                 generator_dropout : tf.estimator.ModeKeys.EVAL,
                                  discriminator_dropout : tf.estimator.ModeKeys.TRAIN}
                 else:
                     feed_dict = {global_mode : modekey,
+                                 generator_dropout : tf.estimator.ModeKeys.EVAL,
                                  discriminator_dropout : tf.estimator.ModeKeys.EVAL}
                 rtns = sess.run(fetches, feed_dict=feed_dict)
                 glob_step = rtns['global_step']
                 loss = rtns['disc_loss']
                 r_loss = rtns['real_loss']
                 f_loss = rtns['fake_loss']
+                acc = rtns['disc_acc']
 
                 if disc_step % config.batches_per_summary == 0:
                     writer.add_summary(
@@ -1413,7 +1478,7 @@ def main(_):
                 end_time = time.time()
                 per_step_time = round(end_time - start_time, 2)
                 progbar.update(nexamples,
-                               [('loss', loss), ('batch_time', per_step_time)]) 
+                               [('loss', loss), ('batch_time', per_step_time), ('acc', acc)]) 
             except tf.errors.OutOfRangeError:
                 break
         
@@ -1465,12 +1530,12 @@ def main(_):
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = clas_summaries
                     if clas_step % config.batches_per_text_summary == 0:
-                        fetches['real_sentence'] = real_label_inp[0, : ]
-                        fetches['r_clas_q_logit'] = r_clas_q_logit[0, :]
-                        fetches['r_clas_score'] = r_clas_score[0]
+                        fetches['real_sentence'] = real_label_inp_sl
+                        fetches['r_clas_q_logit'] = r_clas_q_logit_sl
+                        fetches['r_clas_score'] = r_clas_score_sl
                         fetches['r_clas_loss']  = r_clas_loss
-                        fetches['r_baseline'] =  r_clas_crit_baselines[0, :]
-                        fetches['real_class'] = data_labels[0]
+                        fetches['r_baseline'] =  r_clas_crit_baselines_sl
+                        fetches['real_class'] = data_labels_sl
 
 
                 if mode_string == 'train':
@@ -1488,17 +1553,17 @@ def main(_):
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = clas_summaries
                     if clas_step % config.batches_per_text_summary == 0:
-                        fetches['fake_sentence'] = fake_seq[0, :]
-                        fetches['real_sentence'] = real_label_inp[0, : ]
-                        fetches['r_clas_q_logit'] = r_clas_q_logit[0, :]
-                        fetches['f_clas_q_logit'] = f_clas_q_logit[0, :]
-                        fetches['r_clas_score'] = r_clas_score[0]
-                        fetches['f_clas_score'] = f_clas_score[0]
+                        fetches['fake_sentence'] = fake_seq_sl
+                        fetches['real_sentence'] = real_label_inp_sl
+                        fetches['r_clas_q_logit'] = r_clas_q_logit_sl
+                        fetches['f_clas_q_logit'] = f_clas_q_logit_sl
+                        fetches['r_clas_score'] = r_clas_score_sl
+                        fetches['f_clas_score'] = f_clas_score_sl
                         fetches['r_clas_loss']  = r_clas_loss
                         fetches['f_clas_loss']  = f_clas_loss
-                        fetches['clas_baseline'] =  clas_baseline[0, :]
-                        fetches['fake_class'] = random_classes[0]
-                        fetches['real_class'] = data_labels[0]
+                        fetches['clas_baseline'] =  clas_baseline_sl
+                        fetches['fake_class'] = random_classes_sl
+                        fetches['real_class'] = data_labels_sl
 
                 if mode_string == 'val':
                     fetches = {
@@ -1537,10 +1602,12 @@ def main(_):
                 if mode_string == 'train' or mode_string == 'pretrain':
                     feed_dict = {global_mode: modekey,
                                  classifier_dropout : tf.estimator.ModeKeys.TRAIN,
+                                 generator_dropout : tf.estimator.ModeKeys.EVAL,
                                  discriminator_dropout : tf.estimator.ModeKeys.TRAIN} # TODO FIGURE OUT WHY NEC
                 else:
                     feed_dict = {global_mode: modekey,
                                  classifier_dropout : tf.estimator.ModeKeys.EVAL,
+                                 generator_dropout : tf.estimator.ModeKeys.EVAL,
                                  discriminator_dropout : tf.estimator.ModeKeys.EVAL}
                 if mode_string == 'pretrain':
                     feed_dict[clas_use_fake_data] = False
@@ -1554,6 +1621,8 @@ def main(_):
                 loss = rtns['clas_loss']
                 r_loss = rtns['real_loss']
                 acc = rtns['r_clas_acc']
+                if mode_string != 'pretrain':
+                    f_acc = rtns['f_clas_acc']
 
                 if  clas_step % config.batches_per_summary == 0:
                     writer.add_summary(
@@ -1635,8 +1704,14 @@ def main(_):
                 # Update progbar
                 end_time = time.time()
                 per_step_time = round(end_time - start_time, 2)
-                progbar.update(nexamples,
-                               [('loss', loss), ('batch_time', per_step_time), ('acc', acc)] )
+                if mode_string == 'pretrain':
+                    progbar.update(nexamples,
+                                   [('loss', loss), ('batch_time', per_step_time), ('acc', acc)] )
+                else:
+                    progbar.update(nexamples,
+                                   [('loss', loss), ('batch_time', per_step_time),
+                                    ('r_acc', acc), ('f_acc', f_acc)] )
+                
             
             except tf.errors.OutOfRangeError:
                 break
@@ -1650,7 +1725,8 @@ def main(_):
 
         return output
 
-    run_options = tf.RunOptions(report_tensor_allocations_upon_oom = True) 
+    #run_options = tf.RunOptions(report_tensor_allocations_upon_oom = True) 
+    run_options = tf.RunOptions()
     # Begin training loop
     sess = tf.Session(graph=g)
     with sess:
@@ -1662,25 +1738,15 @@ def main(_):
 
         # Checkpoints
         checkpoint_dir = os.path.abspath(config.checkpoint_dir)
-        checkpoint_prefix = os.path.join(checkpoint_dir, 'ckpt-all')
+        checkpoint_file = config.load_checkpoint_file
         checkpoint = tf.train.Saver()
         if config.restore_model:
-            checkpoint.restore(sess, checkpoint_prefix)
-            logger.info("Checkpoint restored from {}".format(checkpoint_dir))
+            checkpoint.restore(sess, checkpoint_file)
+            logger.info("Checkpoint restored from {}".format(checkpoint_file))
 
         if config.clear_run_logs:
             logfiles = os.listdir(config.log_dir)
             [os.unlink(os.path.join(config.log_dir, f)) for f in logfiles]
-
-        if config.save_trained_gen:
-            gen_checkpoint_dir = os.path.abspath(config.gen_ckpt_dir)
-            gen_checkpoint_prefix = os.path.join(gen_checkpoint_dir, 'ckpt-gen')
-            gen_saver = tf.train.Saver()
-
-        if config.load_trained_gen and not config.restore_model:
-            gen_saver = tf.train.Saver()
-            gen_saver.restore(sess, config.gen_ckpt_file)
-            logger.info('Generator-only checkpoint restored from {}'.format(config.gen_ckpt_file))
 
 
         # Summaries
@@ -1688,13 +1754,12 @@ def main(_):
         with sum_writer:
             # Check if testing
             if config.clas_test:
-                checkpoint.restore(sess, config.clas_test_ckpt)
-                logger.info('Restoring clas test checkpoint:{}'.format(config.clas_test_ckpt))
                 outs = clas_run_epoch(sess, 'test', sum_writer, 0)
                 logger.info(outs)
                 return
 
 
+            g.finalize()
             # Gen Pre-training
             logger.info("Starting generator pretraining...")
             min_gen_val_loss = 1e8
@@ -1704,20 +1769,24 @@ def main(_):
                 gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer)
                 logger.info('\n Gen Validate Pretrain Epoch {}'.format(e))
                 gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
+                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
+                if not config.restore_model:
+                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-gen'))
 
                 # Early Stopping
-                if gen_rtns['loss'] < (min_gen_val_loss - config.gen_es_tolerance):
-                    min_gen_val_loss = gen_rtns['loss']
-                    patience = 0
-                    checkpoint.save(sess, checkpoint_prefix)
-                    if config.save_trained_gen:
-                        gen_saver.save(sess, gen_checkpoint_prefix)
-                else:
-                    patience += 1
-                
-                if patience > config.gen_patience:
-                    logger.info("\n Gen Early Stopping Reached at val loss {:0.02f}".format(min_gen_val_loss))
-                    break
+                #if gen_rtns['loss'] < (min_gen_val_loss - config.gen_es_tolerance):
+                #    min_gen_val_loss = gen_rtns['loss']
+                #    patience = 0
+                #    checkpoint.save(sess, checkpoint_prefix)
+                #    if config.save_trained_gen:
+                #        gen_saver.save(sess, gen_checkpoint_prefix)
+                #else:
+                #    patience += 1
+               # 
+               # if patience > config.gen_patience:
+               #     logger.info("\n Gen Early Stopping Reached at val loss {:0.02f}".format(
+               #         min_gen_val_loss))
+               #     break
             logger.info('Min Gen MLE val loss: {}'.format(min_gen_val_loss))
 
             #if config.train_lm_only:
@@ -1726,7 +1795,7 @@ def main(_):
             # Keep track of these separate from global_step
             # Disc Pretraining
             logger.info("Starting discriminator pretraining...")
-            if config.disc_has_own_embedder:
+            if config.disc_has_own_embedder and False:
                 sess.run(copy_embedder_weights)
             disc_rtns = {'step' : 0}
             for e in range(config.d_pretrain_epochs):
@@ -1736,18 +1805,23 @@ def main(_):
                 logger.info('\n Disc Val Epoch {} '.format(e))
                 disc_rtns = disc_run_epoch(
                     sess, 'val', sum_writer, disc_rtns['step'])
-                checkpoint.save(sess, checkpoint_prefix)
+                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
+                if not config.restore_model:
+                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-disc'))
             logger.info('\n Discriminator critic pretraining...')
             for e in range(config.d_pretrain_critic_epochs):
                 logger.info('\n Disc-Crit Pretrain Epoch {}'.format(e))
                 disc_rtns = disc_run_epoch(
                     sess, 'train_critic', sum_writer, disc_rtns['step'])
-                checkpoint.save(sess, checkpoint_prefix)
+                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
+                if not config.restore_model:
+                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-disc'))
 
             # Div pretraining
             logger.info('Copying cell weights into diversifier...')
-            g_decoder_cell_weights = g_decoder.cell.get_weights()
-            g_decoder_output_weights = g_decoder.output_layer.get_weights()
+            #g_decoder_cell_weights = g_decoder.cell.get_weights()
+            #mode = generator_dropout
+            #g_decoder_output_weights = g_decoder.output_layer.get_weights()
             #diversifier.cell.set_weights(g_decoder_cell_weights)
             #diversifier.output_layer.set_weights(g_decoder_output_weights)
             logger.info("Starting diversifier pretraining...")
@@ -1771,40 +1845,48 @@ def main(_):
                 print('\n Clas Validate Pretrain Epoch {}'.format(e))
                 clas_rtns = clas_run_epoch(
                     sess, 'val', sum_writer, clas_rtns['step'])
-                print(clas_rtns)
-                checkpoint.save(sess, checkpoint_prefix)
-                if clas_rtns['loss'] < (min_clas_val_loss - config.clas_es_tolerance):
-                    min_clas_val_loss = clas_rtns['loss']
-                    patience = 0
-                else:
-                    patience += 1
-                if patience > config.clas_patience:
-                    logger.info('Clas Early Stopping reached at {:0.02f}'.format(clas_rtns['loss']))
-                    break
+                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
+                if not config.restore_model:
+                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-clas'))
+
+                #if clas_rtns['loss'] < (min_clas_val_loss - config.clas_es_tolerance):
+                #    min_clas_val_loss = clas_rtns['loss']
+                #    patience = 0
+                #else:
+                #    patience += 1
+                #if patience > config.clas_patience:
+                #    logger.info('Clas Early Stopping reached at {:0.02f}'.format(clas_rtns['loss']))
+                #    break
             
-            logger.info('Min Clas  val loss: {}, acc: {}'.format(min_clas_val_loss, clas_rtns['real_acc']))
+            logger.info('Min Clas  val loss: {}, acc: {}'.format(
+                min_clas_val_loss, clas_rtns['real_acc']))
             logger.info("Starting adversarial training...")
             prev_gen_val = 1e8
             extra_disc = False
             if config.adversarial_length > 0:
                 max_length.load(config.adversarial_length, sess)
-                for e in range(1):
+                for e in range(config.preadversarial_epochs):
                     disc_rtns = disc_run_epoch(
                         sess, 'train', sum_writer, disc_rtns['step'])
                     clas_rtns = clas_run_epoch(
                         sess, 'train', sum_writer, clas_rtns['step'])
-                    checkpoint.save(sess, checkpoint_prefix)
-            checkpoint.save(sess, checkpoint_prefix + ('-preadv'))
+                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
+            if not config.restore_model:
+                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-preadv'))
+
+                    
             for e in range(config.adversarial_epochs):
                 cur_epoch = e + config.g_pretrain_epochs
                 # Generator Train
                 logger.info('\nGen Adv-Train Epoch {}'.format(cur_epoch))
-                gen_rtns = gen_run_epoch(sess, 'train', sum_writer) 
+                for i in range(config.gen_adv_epoch):
+                    gen_rtns = gen_run_epoch(sess, 'train', sum_writer) 
+                    gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
                 if config.mle_loss_in_adv:
-                    logger.info('\nGen Adv-MLE Train Epoch{}'.format(cur_epoch))
-                    gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer)
-                # Save
-                checkpoint.save(sess, checkpoint_prefix +( '-adv'))
+                    for i in range(config.gen_mle_adv_epoch):
+                        logger.info('\nGen Adv-MLE Train Epoch{}'.format(cur_epoch))
+                        gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer)
+                        gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
                 
                 # Check discriminator loss
                 if config.discriminator_loss_lambda > 0:
@@ -1818,35 +1900,26 @@ def main(_):
                     logger.info('\nDisc Adv-Train Epoch: {}+{}'.format(cur_epoch, disc_e))
                     disc_rtns = disc_run_epoch(sess, 'train', sum_writer, disc_rtns['step'])
                     disc_rtns = disc_run_epoch(sess, 'val', sum_writer, disc_rtns['step'])
-                    checkpoint.save(sess, checkpoint_prefix + '-adv')
                     disc_e += 1
                 
                 # Generator validate
                 logger.info('\nGen Adv-Valid Epoch {}'.format(cur_epoch))
                 gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
-                if gen_rtns['loss'] < prev_gen_val:
-                    prev_gen_val = gen_rtns['loss']
-                    extra_disc = False
-                else:
-                    extra_disc = True
-
                 
-
-
                 # Check Div Loss
-                if config.diversifier_loss_lambda > 0:
-                    logger.info('\nDiv Adv-Val Epoch {}'.format(cur_epoch))
-                    div_rtns = div_run_epoch(sess, 'val', sum_writer, div_rtns['step'])
+                #if config.diversifier_loss_lambda > 0:
+                #    logger.info('\nDiv Adv-Val Epoch {}'.format(cur_epoch))
+                #    div_rtns = div_run_epoch(sess, 'val', sum_writer, div_rtns['step'])
                 # Train Div
-                div_e = 0
-                while config.diversifier_loss_lambda >0  and div_rtns['loss'] > config.max_div_pg_loss:
-                    logger.info('\nDiv Adv-Train Epoch {}+{}'.format(cur_epoch, div_e))
-                    div_rtns = div_run_epoch(sess, 'train', sum_writer, div_rtns['step'])
-                    div_e += 1
-                    checkpoint.save(sess, checkpoint_prefix + '-adv')
-                    if div_e > config.max_extra_div_adv_epochs:
-                        logger.info('Reached extra div epoch limit at loss: {}'.format(div_rtns['loss']))
-                        break
+                #div_e = 0
+                #while config.diversifier_loss_lambda >0  and div_rtns['loss'] > config.max_div_pg_loss:
+                #    logger.info('\nDiv Adv-Train Epoch {}+{}'.format(cur_epoch, div_e))
+                #    div_rtns = div_run_epoch(sess, 'train', sum_writer, div_rtns['step'])
+                #    div_e += 1
+                #    checkpoint.save(sess, checkpoint_prefix + '-adv')
+                #    if div_e > config.max_extra_div_adv_epochs:
+                #        logger.info('Reached extra div epoch limit at loss: {}'.format(div_rtns['loss']))
+                #        break
 
                 # Check Clas Acc
                 if config.classifier_loss_lambda > 0:
@@ -1857,8 +1930,11 @@ def main(_):
                 while config.classifier_loss_lambda > 0 and clas_e < config.clas_adv: 
                     logger.info('\nClas Adv-Train Epoch {}+{}'.format(cur_epoch, clas_e))
                     clas_rnts = clas_run_epoch(sess, 'train', sum_writer, clas_rtns['step'])
-                    checkpoint.save(sess, checkpoint_prefix + '-adv')
+                    logger.info('\nClas Adv-Val Epoch {}'.format(cur_epoch))
+                    clas_rtns = clas_run_epoch(sess, 'val', sum_writer, clas_rtns['step'])
                     clas_e += 1
+
+                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
 
 
 
