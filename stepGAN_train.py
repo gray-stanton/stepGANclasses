@@ -489,9 +489,10 @@ def main(_):
             #             tf.shape(fake_seq), real_seq, fake_seq)
 
             r_disc_q_logit, _, r_disc_cell_outputs = discriminator(
-                real_inp, sequence_length= real_seq_lengths, return_cell_output=True)
+                real_inp, sequence_length= real_seq_lengths, return_cell_output=True,
+                mode=discriminator_dropout)
             f_disc_q_logit, _, f_disc_cell_outputs = discriminator(
-                fake_inp, sequence_length = gen_lengths, 
+                fake_inp, sequence_length = gen_lengths, mode=discriminator_dropout,
                 return_cell_output=True)
             r_disc_qvalues = tf.math.sigmoid(r_disc_q_logit)
             f_disc_qvalues = tf.math.sigmoid(f_disc_q_logit)
@@ -638,9 +639,11 @@ def main(_):
 
             # Pass through classifier
             r_clas_q_logit, _, r_clas_cell_outputs = classifier(
-                real_label_inp_emb, sequence_length= label_seq_lengths,mode=classifier_dropout, return_cell_output=True)
+                real_label_inp_emb, sequence_length= label_seq_lengths,
+                mode=classifier_dropout, return_cell_output=True)
             f_clas_q_logit, _, f_clas_cell_outputs = classifier(
-                fake_label_inp_emb, sequence_length = gen_lengths,mode=classifier_dropout, return_cell_output=True)
+                fake_label_inp_emb, sequence_length = gen_lengths,
+                mode=classifier_dropout, return_cell_output=True)
 
             r_clas_q_logit_sq = tf.squeeze(r_clas_q_logit)
             f_clas_q_logit_sq = tf.squeeze(f_clas_q_logit)
@@ -959,22 +962,16 @@ def main(_):
                     advantages = advantages + config.diversifier_loss_lambda * (div_rewards)
                 
             if config.reward_blending == 'f1':
-                rewards = tf.multiply(config.discriminator_loss_lambda * tf.nn.sigmoid(disc_rewards),
+                rewards = 2 *tf.multiply(config.discriminator_loss_lambda * tf.nn.sigmoid(disc_rewards),
                                       config.classifier_loss_lambda * tf.nn.sigmoid(clas_rewards))
                 rewards = tf.divide(rewards, (config.discriminator_loss_lambda * tf.nn.sigmoid(disc_rewards) + 
                                               config.classifier_loss_lambda * tf.nn.sigmoid(clas_rewards)))
-                baseline = tf.multiply(config.discriminator_loss_lambda * tf.nn.sigmoid(disc_baseline),
+                baseline = 2 * tf.multiply(config.discriminator_loss_lambda * tf.nn.sigmoid(disc_baseline),
                                        config.classifier_loss_lambda * tf.nn.sigmoid(clas_baseline))
                 baseline = tf.divide(baseline, (config.discriminator_loss_lambda * tf.nn.sigmoid(disc_baseline) + 
                                                 config.classifier_loss_lambda *  tf.nn.sigmoid(clas_baseline)))
                 advantages = rewards - baseline
             advantages = tf.squeeze(advantages)
-            if config.norm_advantages:
-                advantages = tx.losses.discount_reward(advantages, 
-                                                       sequence_length=gen_lengths,
-                                                       discount=0,
-                                                       normalize=True,
-                                                       tensor_rank=2)
             if config.linear_decay_pg_weights:
                 steps = tf.reshape(
                     tf.tile(
@@ -985,6 +982,12 @@ def main(_):
                 alpha = tx.utils.mask_sequences(alpha, gen_lengths)
                 advantages = tf.multiply(advantages, alpha)
 
+            if config.norm_advantages:
+                advantages = tx.losses.discount_reward(advantages, 
+                                                       sequence_length=gen_lengths,
+                                                       discount=0,
+                                                       normalize=True,
+                                                       tensor_rank=2)
             
             #p = tf.print(tf.shape(advantages))#, advantages[0, :], advantages[1, :])
             #advantages = advantages / config.advantage_var_reduc
