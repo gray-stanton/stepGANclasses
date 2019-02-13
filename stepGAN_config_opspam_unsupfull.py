@@ -1,15 +1,15 @@
 import tensorflow
 
 # Overarching
-clas_test = False
-clas_test_ckpt = '/home/gray/code/stepGAN/opspam/ckptclas/ckpt-all'
-
+clas_test = True
+clas_test_ckpt = '/home/gray/code/stepGAN/opspam_unsup/ckpt/ckpt-all'
+clas_pred_output = '/home/gray/code/stepGAN/opspam_unsup/tests/randomtest.txt'
 # Saving/logging Config
 restore_model= True
 clear_run_logs = True
-log_dir='/home/gray/code/stepGAN/opspam/logs'
-checkpoint_dir='/home/gray/code/stepGAN/opspam/ckpt2'
-load_checkpoint_file = '/home/gray/code/stepGAN/opspam/ckpt2/ckpt-gen'
+log_dir='/home/gray/code/stepGAN/opspam_unsup/logs'
+checkpoint_dir='/home/gray/code/stepGAN/opspam_unsup/ckpt'
+load_checkpoint_file = '/home/gray/code/stepGAN/opspam_unsup/ckpt/ckpt-all'
 log_verbose_mle = True
 log_verbose_rl = True
 batches_per_summary = 10
@@ -19,19 +19,20 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 2# 60
-d_pretrain_epochs = 50# 60
-d_pretrain_critic_epochs = 10 #20
+g_pretrain_epochs = 0# 60
+d_pretrain_epochs = 0# 60
+d_pretrain_critic_epochs = 0#20
 div_pretrain_epochs = 0
-c_pretrain_epochs = 30 # 20
+c_pretrain_epochs = 3 # 20
 preadversarial_epochs = 0
-adversarial_epochs = 150
+adversarial_epochs = 10
 
-disc_adv = 15
-clas_adv = 15
+disc_adv = 2
+clas_adv = 10
 gen_adv_epoch = 4
-gen_mle_adv_epoch = 2
+gen_mle_adv_epoch = 1
 
+adv_train_max_gen_examples = 2500 #
 
 # Training configs
 min_disc_pg_acc = 0.85 # Train disc in PG when acc less than
@@ -74,7 +75,7 @@ min_pg_loss = -200
 max_pg_loss = 200
 add_sentence_progress = True
 
-clas_loss_on_fake_lambda = 0.5 # Balancing param on real/generated clas
+clas_loss_on_fake_lambda = 1.0 # Balancing param on real/generated clas
 disc_crit_train_on_fake_only = True
 clas_crit_train_on_fake_only = True
 use_alt_disc_loss = False
@@ -83,7 +84,7 @@ use_sigmoided_rewards = False
 
 reward_blending = 'f1'
 
-clas_min_ent_lambda = 0.3
+clas_min_ent_lambda = 0.5
 
 clas_has_own_embedder = True
 disc_has_own_embedder = True
@@ -109,20 +110,19 @@ train_data = {
     "num_epochs": 1,
     "batch_size": 64,
     "allow_smaller_final_batch": True,
-    "shuffle": True,
+    "shuffle": False,
     "shuffle_buffer_size": None,
     "shard_and_shuffle": False,
 
     "num_parallel_calls": 1,
-    "prefetch_buffer_size": 1,
+    "prefetch_buffer_size": 0,
     "max_dataset_size": -1,
     "seed": None,
     "name": "train_data",
-    'shuffle' : True,
     'datasets' : [ 
         {
-            "files" : "./opspam_train_reviews.txt",
-            'vocab_file' : './opspam_vocab.txt',
+            "files" : '/home/gray/code/stepGAN/opspam_final/train_80_reviews.txt',
+            'vocab_file' : '/home/gray/code/stepGAN/opspam_final/opspam_vocab.txt',
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -132,7 +132,7 @@ train_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : './opspam_train_labels.txt',
+            'files' : '/home/gray/code/stepGAN/opspam_final/train_80_labels.txt',
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -143,20 +143,20 @@ val_data = {
     "num_epochs": 1,
     "batch_size": 64,
     "allow_smaller_final_batch": True,
-    "shuffle": True,
+    "shuffle": False,
     "shuffle_buffer_size": None,
     "shard_and_shuffle": False,
 
     "num_parallel_calls": 1,
-    "prefetch_buffer_size": 1,
+    "prefetch_buffer_size": 0,
     "max_dataset_size": -1,
     "seed": None,
     "name": "val_data",
 
     'datasets' : [ 
         {
-            "files" : "./opspam_val_reviews.txt",
-            'vocab_file' : './opspam_vocab.txt',
+            "files" : '/home/gray/code/stepGAN/opspam_final/val_80_reviews.txt',
+            'vocab_file' : '/home/gray/code/stepGAN/opspam_final/opspam_vocab.txt',
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -166,7 +166,7 @@ val_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : './opspam_val_labels.txt',
+            'files' : '/home/gray/code/stepGAN/opspam_final/val_80_labels.txt',
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -181,15 +181,14 @@ test_data = {
     "shuffle_buffer_size": None,
     "shard_and_shuffle": False,
     "num_parallel_calls": 1,
-    "prefetch_buffer_size": 1,
+    "prefetch_buffer_size": 0,
     "max_dataset_size": -1,
     "seed": None,
     "name": "test_data",
-    'shuffle' : True,
     'datasets' : [ 
         {
-            "files" : "./opspam_test_reviews.txt",
-            'vocab_file' : './opspam_vocab.txt',
+            "files" : "/home/gray/code/stepGAN/opspam_final/opspam_test_reviews.txt",
+            'vocab_file' : '/home/gray/code/stepGAN/opspam_final/opspam_vocab.txt',
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -199,7 +198,7 @@ test_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : './opspam_test_labels.txt',
+            'files' : '/home/gray/code/stepGAN/opspam_final/opspam_test_labels.txt',
             'data_type' : 'int',
             'data_name' : 'label'
         }

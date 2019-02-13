@@ -10,7 +10,7 @@ from tensorflow.python import debug as tf_debug
 import custom_helpers
 from my_beam_search_decode import beam_search_decode
 
-config = importlib.import_module('stepGAN_config_opspam')
+config = importlib.import_module('stepGAN_config_opspam_unsupfull')
 
 class Generator(tf.keras.Model):
     """Generator wrapper for checkpointing"""
@@ -79,10 +79,7 @@ class fakelogger():
 
 def get_size(sup_dataset, unsup_dataset=None):
     nbatches = sup_dataset.dataset_size() // sup_dataset.batch_size
-    if unsup_dataset is not None:
-        return sup_dataset.dataset_size() + (nbatches - 1) * unsup_dataset.batch_size
-    else:
-        return sup_dataset.dataset_size()
+    return sup_dataset.dataset_size()
 
 
 
@@ -188,25 +185,21 @@ def main(_):
         vocab_size = vocab.size
 
         # Inputs
-        label_inp = data_batch['x_text_ids']
-        label_seq_lengths = data_batch['x_length']
-        if config.use_unsup > 0:
-            unsup_batch = unsup_iterator.get_next()
-            unsup_inp = unsup_batch['text_ids']
-            unsup_seq_lengths = unsup_batch['length']
-            inp = tf.concat([label_inp, unsup_inp], axis=0)
-            seq_lengths = tf.concat([label_seq_lengths, unsup_seq_lengths], axis=0)
-        else:
-            seq_lengths = label_seq_lengths
-            inp = label_inp
+        inp = data_batch['x_text_ids']
+        all_data_labels = data_batch['label']
+        seq_lengths = data_batch['x_length']
+        # 0.5 indicates unsupervised, remove for class
+        labeled = tf.logical_not(tf.equal(all_data_labels, -1))
+        label_inp = tf.squeeze(tf.gather(inp, tf.where(labeled)), axis=1)
+        label_seq_lengths = tf.squeeze(tf.gather(seq_lengths, tf.where(labeled)), axis=1)
+        data_labels = tf.squeeze(tf.gather(all_data_labels, tf.where(labeled)), axis=1)
+        last_labeled_batch = tf.logical_not(tf.reduce_all(labeled)) # Any unlabeled -> done
+        
 
+        print(data_labels.shape)
         batch_size = tf.shape(inp)[0]
+        label_batch_size = tf.shape(label_inp)[0]
         padded_lengths = tf.shape(inp)[1]
-        if not config.train_lm_only:
-            data_labels = data_batch['label']
-        else:
-            data_labels = tf.placeholder(dtype = tf.int32)
-        one_hot_labels= tf.one_hot(data_labels, 2, axis=-1)
         
         logger.info("Building model components...")
         # Embedding
@@ -223,7 +216,7 @@ def main(_):
         if config.disc_has_own_embedder:
             disc_embedder_model = Embedder(vocab_size, config.disc_emb_hparams)
             disc_embedder = disc_embedder_model.embedder
-            copy_embedder_weights = disc_embedder.embedding.assign(embedder.embedding)
+            #copy_embedder_weights = disc_embedder.embedding.assign(embedder.embedding)
         else:
             disc_embedder = embedder
         discriminator_dropout = tf.placeholder(dtype=tf.string)
@@ -237,7 +230,7 @@ def main(_):
         if config.clas_has_own_embedder: 
             clas_emb_model = Embedder(vocab_size, config.clas_emb_hparams)
             clas_embedder = clas_emb_model.embedder
-            clas_copy_embedder_weights = clas_embedder.embedding.assign(embedder.embedding)
+            #clas_copy_embedder_weights = clas_embedder.embedding.assign(embedder.embedding)
         else:
             clas_embedder = embedder
 
@@ -266,13 +259,9 @@ def main(_):
             context_size = config.noise_size
             # TODO should respect labeled classes
             context = tf.random.normal((batch_size, context_size))
-            if not config.use_unsup:
-                true_classes = tf.cast(data_labels, tf.float32)
-            else: 
-                # For unsupervised, with no known class, give 0.5 as input
-                true_classes = tf.concat([tf.cast(data_labels, tf.float32),
-                                          tf.tile(0.5, tf.shape(unsup_batch)[0])], axis=0)
-
+            # If unlabeled, assign label 0.5...
+            reclass_unlab = tf.ones_like(all_data_labels, dtype=tf.float32) / 2.0
+            true_classes = tf.where(labeled, tf.cast(all_data_labels, tf.float32), reclass_unlab)
             context = tf.concat([context, tf.expand_dims(true_classes, -1)], axis=1)
             tiled_context = tf.reshape(
                 tf.tile(context, [1, tf.shape(x)[1]]), [-1, tf.shape(x)[1], context_size + 1])
@@ -667,7 +656,7 @@ def main(_):
                                                   sum_over_timesteps=False)
             else:
                 r_clas_score = tx.losses.mask_and_reduce(r_clas_q_logit_sq,
-                                                  real_seq_lengths,
+                                                  label_seq_lengths,
                                                   average_across_batch=False,
                                                   average_across_timesteps=True,
                                                   sum_over_batch=False,
@@ -696,7 +685,7 @@ def main(_):
                 clas_loss =  tf.cond(clas_use_fake_data,
                                      lambda : r_clas_loss + config.clas_loss_on_fake_lambda * f_clas_loss,
                                      lambda : r_clas_loss)
-                p1 = tf.print(tf.shape(clas_loss), clas_loss, r_clas_loss, f_clas_loss)
+                #p1 = tf.print(tf.shape(clas_loss), clas_loss, r_clas_loss, f_clas_loss)
 
             else:
                 clas_loss = r_clas_loss
@@ -762,21 +751,21 @@ def main(_):
 
             r_probs = tf.math.sigmoid(r_clas_score)
             f_probs = tf.math.sigmoid(f_clas_score)
-            r_preds = tf.cast(tf.round(r_probs), tf.int32)
-            f_preds = tf.cast(tf.round(f_probs), tf.int32)
+            r_clas_preds = tf.cast(tf.round(r_probs), tf.int32)
+            f_clas_preds = tf.cast(tf.round(f_probs), tf.int32)
             random_class_labels_ints = tf.cast(random_class_labels, tf.int32)
             r_clas_acc = tf.contrib.metrics.accuracy(
-                r_preds, data_labels)
+                r_clas_preds, data_labels)
             f_clas_acc = tf.contrib.metrics.accuracy(
-                f_preds, random_class_labels_ints)
+                f_clas_preds, random_class_labels_ints)
             r_clas_prec = tf.reduce_mean(tf.metrics.precision(
-                r_preds, data_labels))
+                r_clas_preds, data_labels))
             f_clas_prec = tf.reduce_mean(tf.metrics.precision(
-                f_preds, random_class_labels_ints))
+                f_clas_preds, random_class_labels_ints))
             r_clas_recl = tf.reduce_mean(tf.metrics.recall(
-                r_preds, data_labels))
+                r_clas_preds, data_labels))
             f_clas_recl = tf.reduce_mean(tf.metrics.recall(
-                f_preds, random_class_labels))
+                f_clas_preds, random_class_labels))
             r_f1 = 2 * (r_clas_prec * r_clas_recl)/(r_clas_prec + r_clas_recl)
             f_f1 = 2 * (f_clas_prec * f_clas_recl)/(f_clas_prec + f_clas_recl)
             tf.summary.scalar('clas_loss', clas_loss)
@@ -1103,17 +1092,14 @@ def main(_):
             iterator.switch_to_train_data(sess)
             modekey = tf.estimator.ModeKeys.TRAIN
             size = get_size(train_data, unsup_data)
-            bs = train_data.batch_size
         elif mode_string == 'val':
             iterator.switch_to_val_data(sess)
             modekey = tf.estimator.ModeKeys.EVAL
             size = get_size(val_data, unsup_data)
-            bs = val_data.batch_size
         if config.use_unsup:
             unsup_iterator.switch_to_dataset(sess)
-            bs += unsup_data.batch_size
         progbar = tf.keras.utils.Progbar(size, 30, 1, 0.05)
-        nexamples = 0
+        nexamples = 1
         total_loss = 0
         gen_step = 0
         if config.log_verbose_mle or config.log_verbose_rl:
@@ -1167,6 +1153,7 @@ def main(_):
                         fetches['pg_loss_full'] = pg_loss_full_sl
                     
                 elif mode_string == 'val':
+                    print('running')
                     fetches = {
                         'loss' : loss_mle,
                         'batch_size' : batch_size,
@@ -1190,7 +1177,7 @@ def main(_):
                 rtns = sess.run(fetches, feed_dict=feed_dict, options=run_options)
                 glob_step = rtns['global_step']
                 loss = rtns['loss']
-
+                bs = rtns['batch_size']
                 # Summaries
                 if gen_step % config.batches_per_summary == 0:
                     writer.add_summary(rtns['summaries'], glob_step)
@@ -1230,10 +1217,8 @@ def main(_):
                 progbar.update(nexamples,
                                [('loss', loss), ('batch_time', per_step_time)]) 
 
-                if nexamples > size:
-                    # Ward off this weird error
-                    raise(tf.errors.OutOfRangeError)
-
+                if mode_string == 'train' and nexamples > config.adv_train_max_gen_examples:
+                    break
             except tf.errors.OutOfRangeError:
                 break
 
@@ -1308,6 +1293,7 @@ def main(_):
                 rtns = sess.run(fetches, feed_dict=feed_dict)
                 glob_step = rtns['global_step']
                 loss = rtns['loss']
+                bs = rtns['batch_size']
                 if div_step % config.batches_per_summary == 0:
                     writer.add_summary(
                         rtns['summaries'],  div_step)
@@ -1346,7 +1332,6 @@ def main(_):
     def disc_run_epoch(sess, mode_string, writer, disc_step):
         if mode_string == 'train' or mode_string == 'train_critic':
             iterator.switch_to_train_data(sess)
-            bs = train_data.batch_size
             modekey = tf.estimator.ModeKeys.TRAIN
             if config.use_unsup:
                 size = get_size(train_data, unsup_data)
@@ -1356,7 +1341,6 @@ def main(_):
         elif mode_string == 'val':
             iterator.switch_to_val_data(sess)
             modekey = tf.estimator.ModeKeys.EVAL
-            bs = val_data.batch_size
             if config.use_unsup:
                 bs += unsup_data.batch_size
                 size = get_size(val_data, unsup_data)
@@ -1364,10 +1348,8 @@ def main(_):
                 size = get_size(val_data)
         elif mode_string == 'test':
             iterator.switch_to_test_data(sess)
-            bs = test_data.batch_size
             modekey = tf.estimator.ModeKeys.EVAL
             if config.use_unsup:
-                bs += unsup_data.batch_size
                 size = get_size(test_data, unsup_data)
             else:
                 size = get_size(test_data)
@@ -1446,6 +1428,7 @@ def main(_):
                 r_loss = rtns['real_loss']
                 f_loss = rtns['fake_loss']
                 acc = rtns['disc_acc']
+                bs = rtns['batch_size']
 
                 if disc_step % config.batches_per_summary == 0:
                     writer.add_summary(
@@ -1493,17 +1476,14 @@ def main(_):
         total_fake_acc = 0
         nexamples = 0
         if mode_string == 'train' or mode_string == 'pretrain':
-            bs = train_data.batch_size
             modekey = tf.estimator.ModeKeys.TRAIN
             iterator.switch_to_train_data(sess)
             size = get_size(train_data)
         elif mode_string == 'val':
-            bs = val_data.batch_size
             modekey = tf.estimator.ModeKeys.EVAL
             iterator.switch_to_val_data(sess)
             size = get_size(val_data)
         elif mode_string == 'test':
-            bs = test_data.batch_size
             modekey = tf.estimator.ModeKeys.EVAL
             iterator.switch_to_test_data(sess)
             size = get_size(test_data)
@@ -1511,6 +1491,7 @@ def main(_):
             total_real_f1 = 0
             total_real_prec = 0
             total_real_recl = 0
+            preds = []
         if config.use_unsup:
             unsup_iterator.switch_to_dataset(sess) # although not used, must init.
         progbar = tf.keras.utils.Progbar(size, 30, 1, 0.05)
@@ -1526,9 +1507,9 @@ def main(_):
                         'crit_train_op' : clas_crit_train_op,
                         'r_clas_acc' : r_clas_acc,
                         'real_loss' : r_clas_loss,
-                        'batch_size' : batch_size,
+                        'batch_size' : label_batch_size,
                         'global_step' : global_step,
-                        #'p' : p1
+                        'last_labeled_batch' : last_labeled_batch,
                     }
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = clas_summaries
@@ -1550,8 +1531,9 @@ def main(_):
                         'f_clas_acc' : f_clas_acc,
                         'real_loss' : r_clas_loss,
                         'fake_loss' : f_clas_loss,
-                        'batch_size' : batch_size,
+                        'batch_size' : label_batch_size,
                         'global_step' : global_step,
+                        'last_labeled_batch' : last_labeled_batch,
                     }
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = clas_summaries
@@ -1575,8 +1557,9 @@ def main(_):
                         'fake_loss' : f_clas_loss,
                         'r_clas_acc' : r_clas_acc,
                         'f_clas_acc' : f_clas_acc,
-                        'batch_size' : batch_size,
+                        'batch_size' : label_batch_size,
                         'global_step' : global_step,
+                        'last_labeled_batch' : last_labeled_batch,
                     }
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = val_clas_summaries
@@ -1586,6 +1569,7 @@ def main(_):
                         'clas_loss' : clas_loss,
                         'real_loss' : r_clas_loss,
                         'r_clas_score' : r_clas_score,
+                        'r_clas_preds' : r_clas_preds,
                         'fake_loss' : f_clas_loss,
                         'r_clas_acc' : r_clas_acc,
                         'f_clas_acc' : f_clas_acc,
@@ -1598,15 +1582,16 @@ def main(_):
                         'r_clas_f1' : r_f1,
                         'f_clas_f1' : f_f1,
                         'real_sentence' : real_label_inp,
-                        'batch_size' : batch_size,
+                        'batch_size' : label_batch_size,
                         'global_step' : global_step,
-                        'summaries' : val_clas_summaries
+                        'summaries' : val_clas_summaries,
+                        'last_labeled_batch' : last_labeled_batch,
                     }
                 if mode_string == 'train' or mode_string == 'pretrain':
                     feed_dict = {global_mode: modekey,
                                  classifier_dropout : tf.estimator.ModeKeys.TRAIN,
                                  generator_dropout : tf.estimator.ModeKeys.EVAL,
-                                 discriminator_dropout : tf.estimator.ModeKeys.TRAIN} # TODO FIGURE OUT WHY NEC
+                                 discriminator_dropout : tf.estimator.ModeKeys.TRAIN}
                 else:
                     feed_dict = {global_mode: modekey,
                                  classifier_dropout : tf.estimator.ModeKeys.EVAL,
@@ -1621,8 +1606,10 @@ def main(_):
                     
                 rtns = sess.run(fetches, feed_dict = feed_dict)
                 glob_step = rtns['global_step']
+                done = rtns['last_labeled_batch']
                 loss = rtns['clas_loss']
                 r_loss = rtns['real_loss']
+                bs = rtns['batch_size']
                 acc = rtns['r_clas_acc']
                 if mode_string != 'pretrain':
                     f_acc = rtns['f_clas_acc']
@@ -1688,7 +1675,7 @@ def main(_):
 
                         print_out_array(header, r_values, fl, final_lines)
                     
-
+                
                 clas_step += 1
                 nexamples += rtns['batch_size']
                 total_loss += loss * rtns['batch_size']
@@ -1701,6 +1688,8 @@ def main(_):
                     total_real_f1 = rtns['r_clas_f1'] * rtns['batch_size']
                     total_real_prec = rtns['r_clas_prec'] * rtns['batch_size']
                     total_real_recl = rtns['r_clas_recl'] * rtns['batch_size']
+                    preds.extend(rtns['r_clas_preds'].squeeze().tolist())
+
 
 
 
@@ -1715,7 +1704,8 @@ def main(_):
                                    [('loss', loss), ('batch_time', per_step_time),
                                     ('r_acc', acc), ('f_acc', f_acc)] )
                 
-            
+                if done:
+                    break
             except tf.errors.OutOfRangeError:
                 break
          
@@ -1725,6 +1715,7 @@ def main(_):
             output['real_recl'] = total_real_recl / nexamples
             output['real_f1'] = total_real_f1 / nexamples
             output['real_prec'] = total_real_prec/nexamples
+            output['r_clas_preds'] = preds
 
         return output
 
@@ -1759,6 +1750,9 @@ def main(_):
             if config.clas_test:
                 outs = clas_run_epoch(sess, 'test', sum_writer, 0)
                 logger.info(outs)
+                with open(config.clas_pred_output, 'w') as f:
+                    for p in outs['r_clas_preds']:
+                        f.write(str(round(p)) + '\n')
                 return
 
 
@@ -1772,6 +1766,7 @@ def main(_):
                 gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer)
                 logger.info('\n Gen Validate Pretrain Epoch {}'.format(e))
                 gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
+                print(gen_rtns['loss'])
                 checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
                 if not config.restore_model:
                     checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-gen'))

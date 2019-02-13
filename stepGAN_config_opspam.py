@@ -5,7 +5,7 @@ clas_test = False
 clas_test_ckpt = '/home/gray/code/stepGAN/opspam/ckptclas/ckpt-all'
 
 # Saving/logging Config
-restore_model= True
+restore_model= False
 clear_run_logs = True
 log_dir='/home/gray/code/stepGAN/opspam/logs'
 checkpoint_dir='/home/gray/code/stepGAN/opspam/ckpt2'
@@ -19,11 +19,11 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 2# 60
-d_pretrain_epochs = 50# 60
-d_pretrain_critic_epochs = 10 #20
+g_pretrain_epochs = 1# 60
+d_pretrain_epochs = 0# 60
+d_pretrain_critic_epochs = 0 #20
 div_pretrain_epochs = 0
-c_pretrain_epochs = 30 # 20
+c_pretrain_epochs = 50 # 20
 preadversarial_epochs = 0
 adversarial_epochs = 150
 
@@ -259,8 +259,8 @@ emb_hparams = {
 }
 
 disc_emb_hparams = {
-    "dim": 50,
-    "dropout_rate": 0.4,
+    "dim": 10,
+    "dropout_rate": 0.2,
     "dropout_strategy": 'element',
     "trainable": True,
     "initializer": {
@@ -283,8 +283,8 @@ disc_emb_hparams = {
 
 
 clas_emb_hparams = {
-    "dim": 50,
-    "dropout_rate": 0.4,
+    "dim": 10,
+    "dropout_rate": 0.2,
     "dropout_strategy": 'element',
     "trainable": True,
     "initializer": {
@@ -299,7 +299,7 @@ clas_emb_hparams = {
         "type": "L1L2",
         "kwargs": {
             "l1": 0.,
-            "l2": 0
+            "l2": 0.
         }
     },
     "name": "clas_embedder",
@@ -353,7 +353,7 @@ disc_hparams = {
               'output_keep_prob': 0.5,
               'state_keep_prob': 1,
               'variational_recurrent': True,
-              'input_size': [emb_hparams['dim'] + 1],
+              'input_size': [disc_emb_hparams['dim'] + 1],
               '@no_typecheck': ['input_keep_prob',
               'output_keep_prob',
               'state_keep_prob']},
@@ -391,13 +391,13 @@ clas_hparams = {
 
         "rnn_cell": {
                'type':tensorflow.contrib.cudnn_rnn.CudnnCompatibleGRUCell,
-              'kwargs': {'num_units': 64},
+              'kwargs': {'num_units': 32},
               'num_layers': 1,
               'dropout': {'input_keep_prob': 1.0,
               'output_keep_prob': 0.5,
               'state_keep_prob': 1,
               'variational_recurrent': True,
-              'input_size': [emb_hparams['dim']],
+              'input_size': [clas_emb_hparams['dim']],
               '@no_typecheck': ['input_keep_prob',
               'output_keep_prob',
               'state_keep_prob']},
@@ -505,7 +505,7 @@ c_opt_hparams = {
     "optimizer": {
         "type": tensorflow.contrib.opt.AdamWOptimizer,
         "kwargs": {
-            'weight_decay' : 1e-4,
+            'weight_decay' : 1e-3,
             "learning_rate": 0.0001
         }
     },
