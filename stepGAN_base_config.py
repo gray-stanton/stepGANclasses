@@ -7,19 +7,20 @@ train_data_labels = None
 val_data_reviews = None
 val_data_labels = None
 test_data_reviews = None
-test_data
+test_data_labels = None
+vocab = None
 
 clas_test = False
-clas_test_ckpt = '/home/gray/code/stepGAN/opspam_unsup/ckpt/ckpt-all'
-clas_pred_output = '/home/gray/code/stepGAN/opspam_unsup/results/80/unsup50/run1/tests.txt'
+clas_test_ckpt = None
+clas_pred_output = None
 # Saving/logging Config
-restore_model= True
+restore_model= False
 clear_run_logs = False
-log_dir='/home/gray/code/stepGAN/opspam_final/logs/80/unsup50/run1'
-checkpoint_dir='/home/gray/code/stepGAN/opspam_final/ckpt/80/unsup50/run1'
-load_checkpoint_file = '/home/gray/code/stepGAN/opspam_final/ckpt/80/unsup50/run1/ckpt-all'
-log_verbose_mle = True
-log_verbose_rl = True
+log_dir= None
+checkpoint_dir= None
+load_checkpoint_file = None
+log_verbose_mle = False
+log_verbose_rl = False
 batches_per_summary = 10
 batches_per_text_summary = 50
 use_char_sep=False
@@ -27,13 +28,13 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 1# 60
+g_pretrain_epochs = 0# 60
 d_pretrain_epochs = 0# 60
 d_pretrain_critic_epochs = 0#20
 div_pretrain_epochs = 0
 c_pretrain_epochs = 0 # 20
 preadversarial_epochs = 0
-adversarial_epochs = 0
+adversarial_epochs = 15
 
 disc_adv = 0
 clas_adv = 50
@@ -83,14 +84,14 @@ min_pg_loss = -200
 max_pg_loss = 200
 add_sentence_progress = True
 
-clas_loss_on_fake_lambda = 10.0 # Balancing param on real/generated clas
+clas_loss_on_fake_lambda = 1.0 # Balancing param on real/generated clas
 disc_crit_train_on_fake_only = True
 clas_crit_train_on_fake_only = True
 use_alt_disc_loss = False
 use_alt_disc_reward = False
 use_sigmoided_rewards = False
 
-reward_blending = 'additive'
+reward_blending = 'f1'
 
 clas_min_ent_lambda = 1.0
 
@@ -101,10 +102,10 @@ disc_has_own_embedder = True
 mle_loss_in_adv = True
 pg_max_ent_lambda = 0
 
-discriminator_loss_lambda = 0
+discriminator_loss_lambda = 1.0
 diversifier_loss_lambda = 0
 diversity_discount = 1
-classifier_loss_lambda = 1
+classifier_loss_lambda = 1.0
 norm_advantages = True
 discriminator_random_stopping = False
 classifier_random_stopping = False
@@ -118,7 +119,7 @@ train_data = {
     "num_epochs": 1,
     "batch_size": 64,
     "allow_smaller_final_batch": True,
-    "shuffle": False,
+    "shuffle": True,
     "shuffle_buffer_size": None,
     "shard_and_shuffle": False,
 
@@ -129,8 +130,8 @@ train_data = {
     "name": "train_data",
     'datasets' : [ 
         {
-            "files" : '/home/gray/code/stepGAN/opspam_final/train_80_reviews.txt',
-            'vocab_file' : '/home/gray/code/stepGAN/opspam_final/opspam_vocab.txt',
+            "files" : train_data_reviews,
+            'vocab_file' : vocab,
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -140,7 +141,7 @@ train_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : '/home/gray/code/stepGAN/opspam_final/train_80_labels.txt',
+            'files' : train_data_labels,
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -151,7 +152,7 @@ val_data = {
     "num_epochs": 1,
     "batch_size": 64,
     "allow_smaller_final_batch": True,
-    "shuffle": False,
+    "shuffle": True,
     "shuffle_buffer_size": None,
     "shard_and_shuffle": False,
 
@@ -163,8 +164,8 @@ val_data = {
 
     'datasets' : [ 
         {
-            "files" : '/home/gray/code/stepGAN/opspam_final/val_80_reviews.txt',
-            'vocab_file' : '/home/gray/code/stepGAN/opspam_final/opspam_vocab.txt',
+            "files" : val_data_reviews,
+            'vocab_file' : vocab,
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -174,7 +175,7 @@ val_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : '/home/gray/code/stepGAN/opspam_final/val_80_labels.txt',
+            'files' : val_data_labels,
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -195,8 +196,8 @@ test_data = {
     "name": "test_data",
     'datasets' : [ 
         {
-            "files" : "/home/gray/code/stepGAN/opspam_final/opspam_test_reviews.txt",
-            'vocab_file' : '/home/gray/code/stepGAN/opspam_final/opspam_vocab.txt',
+            "files" : test_data_reviews,
+            'vocab_file' : vocab,
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -206,7 +207,7 @@ test_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : '/home/gray/code/stepGAN/opspam_final/opspam_test_labels.txt',
+            'files' : test_data_labels,
             'data_type' : 'int',
             'data_name' : 'label'
         }

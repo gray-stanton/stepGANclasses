@@ -20,7 +20,10 @@ shfl_idx = random.sample(list(range(len(revs))), len(revs))
 revs = [str(revs[i]) for i in shfl_idx]
 labs = [str(labs[i]) for i in shfl_idx]
 
-vocab = texar.data.make_vocab([TRAIN_REVS, UNSUP_REVS], 10000)
+if UNSUP_REVS is not None: 
+    vocab = texar.data.make_vocab([TRAIN_REVS, UNSUP_REVS], 10000)
+else:
+    vocab = texar.data.make_vocab([TRAIN_REVS], 10000)
 vocab_path = os.path.join(OUTDIR, 'opspam_vocab.txt')
 with open(vocab_path, 'w') as vf:
     for v in vocab:
