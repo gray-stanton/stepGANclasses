@@ -1809,9 +1809,10 @@ def main(config = None):
                 logger.info('\n Disc Val Epoch {} '.format(e))
                 disc_rtns = disc_run_epoch(
                     sess, 'val', sum_writer, disc_rtns['step'])
-                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
+                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all-base'))
                 if not config.restore_model:
-                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-disc'))
+                    pass
+                    #checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-disc'))
             logger.info('\n Discriminator critic pretraining...')
             for e in range(config.d_pretrain_critic_epochs):
                 logger.info('\n Disc-Crit Pretrain Epoch {}'.format(e))
@@ -1835,7 +1836,7 @@ def main(config = None):
                 logger.info('Div Pretrain Epoch {}'.format(e))
                 div_rtns = div_run_epoch(
                     sess, 'train', sum_writer, div_rtns['step'])
-                checkpoint.save(sess, checkpoint_prefix)
+                #checkpoint.save(sess, checkpoint_prefix)
             
 
             logger.info("Starting classifier pretraining...")
@@ -1850,9 +1851,9 @@ def main(config = None):
                 print('\n Clas Validate Pretrain Epoch {}'.format(e))
                 clas_rtns = clas_run_epoch(
                     sess, 'val', sum_writer, clas_rtns['step'])
-                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
+                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all-base'))
                 if not config.restore_model:
-                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-clas'))
+                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-bestclas'))
 
                 #if clas_rtns['loss'] < (min_clas_val_loss - config.clas_es_tolerance):
                 #    min_clas_val_loss = clas_rtns['loss']

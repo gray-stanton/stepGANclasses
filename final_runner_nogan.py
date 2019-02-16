@@ -46,7 +46,7 @@ def make_data(trp, usp, run):
 
 
     dir_name = 'tr{}_usp{}_{}'.format(int(trp*100), int(usp * 100), run)
-    os.mkdir(os.path.join(BASEDIR, dir_name))
+    #os.mkdir(os.path.join(BASEDIR, dir_name))
     curdir = os.path.join(BASEDIR, dir_name)
     
     data_paths = {
@@ -55,7 +55,7 @@ def make_data(trp, usp, run):
         'val_data_reviews' : os.path.join(curdir, 'vrevs.txt'),
         'val_data_labels' : os.path.join(curdir, 'vlabs.txt'),
         'vocab' : os.path.join(curdir, 'vocab.txt'),
-        'clas_test_ckpt' : os.path.join(curdir, 'ckpt-all'),
+        'clas_test_ckpt' : os.path.join(curdir, 'ckpt-bestclas-base'),
         'clas_pred_output' : os.path.join(curdir, 'testpreds_nogan.txt'),
         'dir' : curdir
     }
@@ -85,7 +85,7 @@ def make_data(trp, usp, run):
 # 0.5, 0.8 x 0.5, 0.8
 for train_pcent in [0.5, 0.7, 0.8, 0.9]:
     for unsup_pcent in [1.0]:
-        for run in range(2):
+        for run in range(3):
             base_config_file = get_config_file(train_pcent, unsup_pcent)
             data_paths = make_data(train_pcent, unsup_pcent, run)
             importlib.invalidate_caches()

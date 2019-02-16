@@ -60,7 +60,7 @@ def make_data(trp, usp, run):
         'dir' : curdir
     }
 
-    """
+    
     with open(data_paths['train_data_reviews'], 'w') as f: 
         for x in tr: 
             f.write(x)
@@ -80,7 +80,7 @@ def make_data(trp, usp, run):
     with open(data_paths['vocab'], 'w') as f:
         for v in vocab:
             f.write(v + '\n')
-"""
+
     return data_paths
 
 # 0.5, 0.8 x 0.5, 0.8
