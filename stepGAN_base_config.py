@@ -2,13 +2,7 @@ import tensorflow
 
 # Overarching
 
-train_data_reviews = None
-train_data_labels = None
-val_data_reviews = None
-val_data_labels = None
-test_data_reviews = None
-test_data_labels = None
-vocab = None
+
 
 clas_test = False
 clas_test_ckpt = None
@@ -19,8 +13,8 @@ clear_run_logs = False
 log_dir= None
 checkpoint_dir= None
 load_checkpoint_file = None
-log_verbose_mle = False
-log_verbose_rl = False
+log_verbose_mle = True
+log_verbose_rl = True
 batches_per_summary = 10
 batches_per_text_summary = 50
 use_char_sep=False
@@ -28,18 +22,18 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 0# 60
-d_pretrain_epochs = 0# 60
+g_pretrain_epochs = 40# 60
+d_pretrain_epochs = 40# 60
 d_pretrain_critic_epochs = 0#20
 div_pretrain_epochs = 0
-c_pretrain_epochs = 0 # 20
+c_pretrain_epochs = 25 # 20
 preadversarial_epochs = 0
-adversarial_epochs = 15
+adversarial_epochs = 8
 
-disc_adv = 0
-clas_adv = 50
-gen_adv_epoch = 3
-gen_mle_adv_epoch = 1
+disc_adv = 10
+clas_adv = 10
+gen_adv_epoch = 4
+gen_mle_adv_epoch = 2
 
 adv_train_max_gen_examples = 5000 #
 
@@ -130,8 +124,8 @@ train_data = {
     "name": "train_data",
     'datasets' : [ 
         {
-            "files" : train_data_reviews,
-            'vocab_file' : vocab,
+            "files" : None,
+            'vocab_file' : None,
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -141,7 +135,7 @@ train_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : train_data_labels,
+            'files' : None,
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -164,8 +158,8 @@ val_data = {
 
     'datasets' : [ 
         {
-            "files" : val_data_reviews,
-            'vocab_file' : vocab,
+            "files" : None,
+            'vocab_file' : None,
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -175,7 +169,7 @@ val_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : val_data_labels,
+            'files' : None,
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -196,8 +190,8 @@ test_data = {
     "name": "test_data",
     'datasets' : [ 
         {
-            "files" : test_data_reviews,
-            'vocab_file' : vocab,
+            "files" : None,
+            'vocab_file' : None,
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -207,7 +201,7 @@ test_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : test_data_labels,
+            'files' : None,
             'data_type' : 'int',
             'data_name' : 'label'
         }

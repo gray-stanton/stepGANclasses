@@ -7,7 +7,7 @@ import random
 BASEDIR = '/home/gray/code/stepGAN/opspam_final/out/'
 
 def get_config_file(trp, usp):
-    return 'stepGAN_base_config' 
+    return 'stepGAN_base_config_nogan' 
 
 unsup_rev_paths = {
     0.5 : '/home/gray/code/stepGAN/chicago_unlab_reviews50.txt',
@@ -46,7 +46,7 @@ def make_data(trp, usp, run):
 
 
     dir_name = 'tr{}_usp{}_{}'.format(int(trp*100), int(usp * 100), run)
-    #os.mkdir(os.path.join(BASEDIR, dir_name))
+    os.mkdir(os.path.join(BASEDIR, dir_name))
     curdir = os.path.join(BASEDIR, dir_name)
     
     data_paths = {
@@ -55,11 +55,10 @@ def make_data(trp, usp, run):
         'val_data_reviews' : os.path.join(curdir, 'vrevs.txt'),
         'val_data_labels' : os.path.join(curdir, 'vlabs.txt'),
         'vocab' : os.path.join(curdir, 'vocab.txt'),
-        'clas_test_ckpt' : os.path.join(curdir, 'ckpt-bestclas'),
-        'clas_pred_output' : os.path.join(curdir, 'testpreds2.txt'),
+        'clas_test_ckpt' : os.path.join(curdir, 'ckpt-all'),
+        'clas_pred_output' : os.path.join(curdir, 'testpreds_nogan.txt'),
         'dir' : curdir
     }
-
     """
     with open(data_paths['train_data_reviews'], 'w') as f: 
         for x in tr: 
@@ -86,7 +85,7 @@ def make_data(trp, usp, run):
 # 0.5, 0.8 x 0.5, 0.8
 for train_pcent in [0.5, 0.7, 0.8, 0.9]:
     for unsup_pcent in [1.0]:
-        for run in range(3):
+        for run in range(2):
             base_config_file = get_config_file(train_pcent, unsup_pcent)
             data_paths = make_data(train_pcent, unsup_pcent, run)
             importlib.invalidate_caches()
@@ -109,7 +108,7 @@ for train_pcent in [0.5, 0.7, 0.8, 0.9]:
             print(base_config.train_data['datasets'][0]['files'])
             print('Train Pcent {} Unsup Pcent {} Run {}'.format(train_pcent, unsup_pcent, run))
             # Run
-            #stepGAN_train.main(base_config)
+            stepGAN_train.main(base_config)
             # Run test
             base_config.clas_test = True
             stepGAN_train.main(base_config)

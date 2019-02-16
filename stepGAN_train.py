@@ -162,6 +162,7 @@ def get_vocab(train_lm_only, d):
 def main(config = None):
     # Setup
     if config is None:
+        print('No config given...')
         config = importlib.import_module('stepGAN_config_opspam_unsupfull')
     g = tf.Graph()
     with g.as_default():
@@ -171,7 +172,6 @@ def main(config = None):
         
         # Get data
         logger.info("Constructing graph...")
-        print(config.train_data, config.val_data, config.test_data)
         train_data = get_dataset(config.train_lm_only, config.train_data)
         val_data = get_dataset(config.train_lm_only, config.val_data)
         test_data = get_dataset(config.train_lm_only, config.test_data)
@@ -1774,7 +1774,8 @@ def main(config = None):
                 print(gen_rtns['loss'])
                 checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
                 if not config.restore_model:
-                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-gen'))
+                    pass
+                    #checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-gen'))
 
                 # Early Stopping
                 #if gen_rtns['loss'] < (min_gen_val_loss - config.gen_es_tolerance):
@@ -1818,7 +1819,8 @@ def main(config = None):
                     sess, 'train_critic', sum_writer, disc_rtns['step'])
                 checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
                 if not config.restore_model:
-                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-disc'))
+                    pass
+                    #checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-disc'))
 
             # Div pretraining
             logger.info('Copying cell weights into diversifier...')
@@ -1875,9 +1877,11 @@ def main(config = None):
                         sess, 'train', sum_writer, clas_rtns['step'])
                     checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
             if not config.restore_model:
-                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-preadv'))
+                pass
+                #checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-preadv'))
 
                     
+            min_acc = 0
             for e in range(config.adversarial_epochs):
                 cur_epoch = e + config.g_pretrain_epochs
                 # Generator Train
@@ -1925,7 +1929,6 @@ def main(config = None):
                 #        break
 
                 # Check Clas Acc
-                min_acc = 0
                 if config.classifier_loss_lambda > 0:
                     logger.info('\nClas Adv-Val Epoch {}'.format(cur_epoch))
                     clas_rtns = clas_run_epoch(sess, 'val', sum_writer, clas_rtns['step'])
@@ -1946,7 +1949,7 @@ def main(config = None):
 
 
 if __name__ == "__main__":
-    tf.app.run(main=main)
+    main(None)
 
 
 
