@@ -7,16 +7,16 @@ import random
 BASEDIR = '/home/gray/code/stepGAN/opspam_final/out/'
 
 def get_config_file(trp, usp):
-    return 'stepGAN_base_config' 
+    if usp == 0.0:
+        return 'stepGAN_base_config_nounsup'
+    if usp == 0.5 or usp == 0.6:
+        return 'stepGAN_base_config_smallunsup'
+    if usp == 0.7 or usp == 0.8:
+        return 'stepGAN_base_config_medunsup'
+    if usp == 0.9 or usp == 1.0:
+        return 'stepGAN_base_config_bigunsup'
 
-unsup_rev_paths = {
-    0.5 : '/home/gray/code/stepGAN/chicago_unlab_reviews50.txt',
-    0.6 : '/home/gray/code/stepGAN/chicago_unlab_reviews60.txt',
-    0.7 : '/home/gray/code/stepGAN/chicago_unlab_reviews70.txt',
-    0.8 : '/home/gray/code/stepGAN/chicago_unlab_reviews80.txt',
-    0.9 : '/home/gray/code/stepGAN/chicago_unlab_reviews90.txt',
-    1.0 : '/home/gray/code/stepGAN/emptyfile.txt'
-}
+unsup_revs_path = '/home/gray/code/stepGAN/chicago_unlab_reviews.txt'
 
 train_revs = '/home/gray/code/stepGAN/opspam_train_reviews.txt'
 train_labs = '/home/gray/code/stepGAN/opspam_train_labels.txt'
@@ -33,20 +33,21 @@ def make_data(trp, usp, run):
     revs = [str(revs[i]) for i in shfl_idx]
     labs = [str(labs[i]) for i in shfl_idx]
 
-    vocab = texar.data.make_vocab([train_revs, test_revs, unsup_rev_paths[usp]], 10000)
     tr = revs[:round(trp *len(revs))]
     vr = revs[round(trp * len(revs)):]
     tl = labs[:round(trp * len(revs))]
     vl = labs[round(trp * len(revs)):]
  
-    with open(unsup_rev_paths[usp], 'r') as f:
-        unsup_revs = f.readlines()
-    tr = tr+ unsup_revs
-    tl = tl + ['-1\n'] * len(unsup_revs)
+    with open(unsup_revs_path, 'r') as f:
+        unsup_revs_full = f.readlines()
+    random.shuffle(unsup_revs_full)
+    unsup_revs = unsup_revs_full[:round(usp * len(unsup_revs_full))]
+
+    unsup_labs = ['-1\n'] * len(unsup_revs)
 
 
     dir_name = 'tr{}_usp{}_{}'.format(int(trp*100), int(usp * 100), run)
-    #os.mkdir(os.path.join(BASEDIR, dir_name))
+    os.mkdir(os.path.join(BASEDIR, dir_name))
     curdir = os.path.join(BASEDIR, dir_name)
     
     data_paths = {
@@ -54,19 +55,30 @@ def make_data(trp, usp, run):
         'train_data_labels'  : os.path.join(curdir, 'tlabs.txt'),
         'val_data_reviews' : os.path.join(curdir, 'vrevs.txt'),
         'val_data_labels' : os.path.join(curdir, 'vlabs.txt'),
+        'unsup_train_data_reviews' : os.path.join(curdir, 'unsup_trevs.txt'),
+        'unsup_train_data_labels' : os.path.join(curdir, 'unsup_tlabs.txt'),
         'vocab' : os.path.join(curdir, 'vocab.txt'),
         'clas_test_ckpt' : os.path.join(curdir, 'ckpt-bestclas'),
-        'clas_pred_output' : os.path.join(curdir, 'testpreds2.txt'),
+        'clas_pred_output' : os.path.join(curdir, 'testpreds.txt'),
         'dir' : curdir
     }
 
-    
+
+ 
     with open(data_paths['train_data_reviews'], 'w') as f: 
         for x in tr: 
             f.write(x)
 
     with open(data_paths['train_data_labels'], 'w') as f:
         for x in tl:
+            f.write(str(x))
+ 
+    with open(data_paths['unsup_train_data_reviews'], 'w') as f: 
+        for x in unsup_revs: 
+            f.write(x)
+  
+    with open(data_paths['unsup_train_data_labels'], 'w') as f:
+        for x in unsup_labs:
             f.write(str(x))
 
     with open(data_paths['val_data_reviews'], 'w') as f:
@@ -77,6 +89,9 @@ def make_data(trp, usp, run):
         for x in vl:
             f.write(str(x))
 
+
+    vocab = texar.data.make_vocab([train_revs, test_revs, data_paths['unsup_train_data_reviews']], 10000)
+
     with open(data_paths['vocab'], 'w') as f:
         for v in vocab:
             f.write(v + '\n')
@@ -84,22 +99,27 @@ def make_data(trp, usp, run):
     return data_paths
 
 # 0.5, 0.8 x 0.5, 0.8
-for train_pcent in [0.5, 0.7, 0.8, 0.9]:
-    for unsup_pcent in [1.0]:
-        for run in range(3):
+for train_pcent in [0.5]:
+    for unsup_pcent in [0.5]:
+        for run in range(1):
             base_config_file = get_config_file(train_pcent, unsup_pcent)
             data_paths = make_data(train_pcent, unsup_pcent, run)
             importlib.invalidate_caches()
             base_config = importlib.import_module(base_config_file)
             base_config = importlib.reload(base_config)
             # inject file paths
-            base_config.train_data['datasets'][0]['files'] = data_paths['train_data_reviews']
-            base_config.train_data['datasets'][1]['files' ] = data_paths['train_data_labels']
+            base_config.train_data['datasets'][0]['files'] = [data_paths['train_data_reviews'],
+                                                              data_paths['unsup_train_data_reviews']]
+            base_config.train_data['datasets'][1]['files' ] = [data_paths['train_data_labels'],
+                                                               data_paths['unsup_train_data_labels']]
+            base_config.clas_train_data['datasets'][0]['files'] = data_paths['train_data_reviews']
+            base_config.clas_train_data['datasets'][1]['files'] = data_paths['train_data_labels']
             base_config.val_data['datasets'][0]['files'] = data_paths['val_data_reviews']
             base_config.val_data['datasets'][1]['files'] = data_paths['val_data_labels']
             base_config.test_data['datasets'][0]['files'] = test_revs
             base_config.test_data['datasets'][1]['files'] = test_labs
             base_config.train_data['datasets'][0]['vocab_file'] = data_paths['vocab']
+            base_config.clas_train_data['datasets'][0]['vocab_file'] = data_paths['vocab']
             base_config.val_data['datasets'][0]['vocab_file'] = data_paths['vocab']
             base_config.test_data['datasets'][0]['vocab_file'] = data_paths['vocab']
             base_config.clas_test_ckpt = data_paths['clas_test_ckpt']
@@ -109,7 +129,7 @@ for train_pcent in [0.5, 0.7, 0.8, 0.9]:
             print(base_config.train_data['datasets'][0]['files'])
             print('Train Pcent {} Unsup Pcent {} Run {}'.format(train_pcent, unsup_pcent, run))
             # Run
-            #stepGAN_train.main(base_config)
+            stepGAN_train.main(base_config)
             # Run test
             base_config.clas_test = True
             stepGAN_train.main(base_config)

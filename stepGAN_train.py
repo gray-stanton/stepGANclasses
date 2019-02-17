@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 import time
+from copy import deepcopy
 from tensorflow.python import debug as tf_debug
 import custom_helpers
 from my_beam_search_decode import beam_search_decode
@@ -77,7 +78,6 @@ class fakelogger():
 
 
 def get_size(sup_dataset, unsup_dataset=None):
-    nbatches = sup_dataset.dataset_size() // sup_dataset.batch_size
     return sup_dataset.dataset_size()
 
 
@@ -172,17 +172,24 @@ def main(config = None):
         
         # Get data
         logger.info("Constructing graph...")
-        train_data = get_dataset(config.train_lm_only, config.train_data)
-        val_data = get_dataset(config.train_lm_only, config.val_data)
-        test_data = get_dataset(config.train_lm_only, config.test_data)
-        unsup_data = None
-        if config.use_unsup :
-            unsup_data = tx.data.MonoTextData(config.unsup_data)
-            unsup_iterator = tx.data.DataIterator(unsup_data)
-        iterator = tx.data.TrainTestDataIterator(train=train_data,
+        train_data = tx.data.MultiAlignedData(config.train_data)
+        val_data = tx.data.MultiAlignedData(config.val_data)
+        test_data = tx.data.MultiAlignedData(config.test_data)
+        clas_train_data_hparams = deepcopy(config.train_data)
+        # Get only the first file, which includes only labeled data.
+        clas_train_data = tx.data.MultiAlignedData(config.clas_train_data)
+        clas_val_data = tx.data.MultiAlignedData(config.val_data)
+        clas_test_data = tx.data.MultiAlignedData(config.test_data)
+        unsup_iterator = tx.data.TrainTestDataIterator(train=train_data,
                                                  val=val_data,
                                                  test=test_data)
-        data_batch = iterator.get_next()
+        nounsup_iterator = tx.data.TrainTestDataIterator(train=clas_train_data,
+                                                         val=clas_val_data,
+                                                         test=clas_test_data)
+        use_unsup = tf.placeholder(tf.bool)
+        data_batch = tf.cond(use_unsup,
+                             lambda: unsup_iterator.get_next(),
+                             lambda: nounsup_iterator.get_next())
         vocab = get_vocab(config.train_lm_only, train_data)
         vocab_size = vocab.size
 
@@ -192,13 +199,12 @@ def main(config = None):
         seq_lengths = data_batch['x_length']
         # 0.5 indicates unsupervised, remove for class
         labeled = tf.logical_not(tf.equal(all_data_labels, -1))
+        any_labeled = tf.reduce_any(labeled)
         label_inp = tf.squeeze(tf.gather(inp, tf.where(labeled)), axis=1)
         label_seq_lengths = tf.squeeze(tf.gather(seq_lengths, tf.where(labeled)), axis=1)
         data_labels = tf.squeeze(tf.gather(all_data_labels, tf.where(labeled)), axis=1)
-        last_labeled_batch = tf.logical_not(tf.reduce_all(labeled)) # Any unlabeled -> done
         
 
-        print(data_labels.shape)
         batch_size = tf.shape(inp)[0]
         label_batch_size = tf.shape(label_inp)[0]
         padded_lengths = tf.shape(inp)[1]
@@ -687,7 +693,6 @@ def main(config = None):
                 clas_loss =  tf.cond(clas_use_fake_data,
                                      lambda : r_clas_loss + config.clas_loss_on_fake_lambda * f_clas_loss,
                                      lambda : r_clas_loss)
-                #p1 = tf.print(tf.shape(clas_loss), clas_loss, r_clas_loss, f_clas_loss)
 
             else:
                 clas_loss = r_clas_loss
@@ -1090,17 +1095,17 @@ def main(config = None):
 
     
     # Epoch running
-    def gen_run_epoch(sess, mode_string, writer):
+    def gen_run_epoch(sess, mode_string, writer, train_with_unsup = True):
         if mode_string == 'train' or mode_string == 'pretrain':
-            iterator.switch_to_train_data(sess)
+            unsup_iterator.switch_to_train_data(sess)
+            nounsup_iterator.switch_to_train_data(sess)
             modekey = tf.estimator.ModeKeys.TRAIN
-            size = get_size(train_data, unsup_data)
+            size = get_size(train_data)
         elif mode_string == 'val':
-            iterator.switch_to_val_data(sess)
+            unsup_iterator.switch_to_val_data(sess)
+            nounsup_iterator.switch_to_train_data(sess)
             modekey = tf.estimator.ModeKeys.EVAL
-            size = get_size(val_data, unsup_data)
-        if config.use_unsup:
-            unsup_iterator.switch_to_dataset(sess)
+            size = get_size(val_data)
         progbar = tf.keras.utils.Progbar(size, 30, 1, 0.05)
         nexamples = 1
         total_loss = 0
@@ -1178,6 +1183,8 @@ def main(config = None):
                                 generator_dropout : tf.estimator.ModeKeys.EVAL,
                                 discriminator_dropout : tf.estimator.ModeKeys.PREDICT,
                                 classifier_dropout : tf.estimator.ModeKeys.PREDICT}
+                feed_dict[use_unsup] = train_with_unsup
+                    
 
                 rtns = sess.run(fetches, feed_dict=feed_dict, options=run_options)
                 glob_step = rtns['global_step']
@@ -1187,8 +1194,10 @@ def main(config = None):
                 if gen_step % config.batches_per_summary == 0:
                     writer.add_summary(rtns['summaries'], glob_step)
                 if gen_step % config.batches_per_text_summary == 0:
-                    writer.add_summary(sess.run(sample_text_summary, {generator_dropout : tf.estimator.ModeKeys.EVAL}), glob_step)
-                    writer.add_summary(sess.run(original_text_summary), glob_step)
+                    writer.add_summary(sess.run(sample_text_summary, 
+                                                {generator_dropout : tf.estimator.ModeKeys.EVAL,
+                                                 use_unsup : True}), glob_step)
+                    writer.add_summary(sess.run(original_text_summary, {use_unsup : True}), glob_step)
                     # Write verbose Summaries
                     if mode_string == 'pretrain' and config.log_verbose_mle:
                         header = ['tkn', 'logit', 'crossent']
@@ -1223,144 +1232,28 @@ def main(config = None):
                 progbar.update(nexamples,
                                [('loss', loss), ('batch_time', per_step_time)]) 
 
-                if mode_string == 'train' and nexamples > config.adv_train_max_gen_examples:
+                if breaking_gen_now and nexamples > config.adv_train_max_gen_examples:
                     break
             except tf.errors.OutOfRangeError:
                 break
 
         return {'loss' : total_loss/nexamples}
 
-
-    def div_run_epoch(sess,  mode_string, writer, div_step):
-        if mode_string == 'train':
-            iterator.switch_to_train_data(sess)
-            modekey = tf.estimator.ModeKeys.TRAIN
-            if config.use_unsup:
-                size = get_size(train_data, unsup_data)
-            else: 
-                size = get_size(train_data)
-        elif mode_string == 'val':
-            iterator.switch_to_val_data(sess)
-            modekey = tf.estimator.ModeKeys.EVAL
-            if config.use_unsup:
-                size = get_size(val_data, unsup_data)
-            else:
-                size = get_size(val_data)
-        elif mode_string == 'test':
-            iterator.switch_to_test_data(sess)
-            modekey = tf.estimator.ModeKeys.EVAL
-            if config.use_unsup:
-                size = get_size(test_data, unsup_data)
-            else:
-                size = get_size(test_data)
-        if config.use_unsup:
-            unsup_iterator.switch_to_dataset(sess)
-        if config.log_verbose_mle or config.log_verbose_rl:
-            fl = fakelogger('{}/logs.txt'.format(config.log_dir))
-        progbar = tf.keras.utils.Progbar(size, 30, 1, 0.05)
-        nexamples = 0
-        total_loss = 0
-        while True:
-            try:
-                start_time = time.time()
-                if mode_string == 'train':
-                    fetches = {
-                        'loss' : div_loss,
-                        'batch_size' : batch_size,
-                        'global_step' : global_step,
-                        'train_op' : div_train_op,
-                    }
-                    if div_step % config.batches_per_summary == 0:
-                        fetches['summaries'] = div_summaries
-                    if div_step % config.batches_per_text_summary == 0:
-                        fetches['fake_sentence'] = gen_sample_ids[0, :]
-                        fetches['real_sentence'] = x[0, 1: ]
-                        fetches['r_div_log_probs'] = r_div_log_probs[0, :]
-                        fetches['f_div_log_probs'] = f_div_log_probs[0, :]
-                        fetches['r_div_mean_lp'] = r_div_mean_lp
-                        fetches['f_div_mean_lp'] = f_div_mean_lp
-                if mode_string == 'val' or 'test':
-                    fetches = {
-                        'loss' : div_loss,
-                        'batch_size' : batch_size,
-                        'global_step' : global_step
-                    }
-                    if div_step % config.batches_per_summary == 0:
-                        fetches['summaries'] = div_summaries
-                    if div_step % config.batches_per_text_summary == 0:
-                        fetches['fake_sentence'] = gen_sample_ids[0, :]
-                        fetches['real_sentence'] = x[0, 1: ]
-                        fetches['r_div_log_probs'] = r_div_log_probs[0, :]
-                        fetches['f_div_log_probs'] = f_div_log_probs[0, :]
-                        fetches['r_div_mean_lp'] = r_div_mean_lp
-                        fetches['f_div_mean_lp'] = f_div_mean_lp
-                
-                feed_dict = {global_mode: modekey}    
-                rtns = sess.run(fetches, feed_dict=feed_dict)
-                glob_step = rtns['global_step']
-                loss = rtns['loss']
-                bs = rtns['batch_size']
-                if div_step % config.batches_per_summary == 0:
-                    writer.add_summary(
-                        rtns['summaries'],  div_step)
-                if div_step % config.batches_per_text_summary == 0:
-                    header = ['tkn', 'logprob']
-                    r_values = [
-                        list(vocab.map_ids_to_tokens_py(rtns['real_sentence'])),
-                        rtns['r_div_log_probs'].squeeze().tolist()
-                        ]
-                    f_values = [
-                        list(vocab.map_ids_to_tokens_py(rtns['fake_sentence'])),
-                        rtns['f_div_log_probs'].squeeze().tolist()
-                        ]
-                    r_final_line = 'r_div_mean_lp: {:0.02f}'.format(rtns['r_div_mean_lp'])
-                    f_final_line = 'f_div_mean_lp: {:0.02f}'.format(rtns['f_div_mean_lp'])
-                    fl.debug('DIV REAL')
-                    print_out_array(header, r_values, fl, r_final_line)
-                    fl.debug('DIV FAKE')
-                    print_out_array(header, f_values, fl, f_final_line)
-
-                div_step += 1
-                nexamples += bs
-                total_loss += loss * bs
-                end_time = time.time()
-                per_step_time = round(end_time - start_time, 2)
-                progbar.update(nexamples,
-                               [('loss', loss), ('batch_time', per_step_time)]) 
-
-            except tf.errors.OutOfRangeError:
-                break
-        
-        return {'loss' : total_loss/nexamples, 'step' : div_step}
-
-
-
     def disc_run_epoch(sess, mode_string, writer, disc_step):
         if mode_string == 'train' or mode_string == 'train_critic':
-            iterator.switch_to_train_data(sess)
+            unsup_iterator.switch_to_train_data(sess)
             modekey = tf.estimator.ModeKeys.TRAIN
-            if config.use_unsup:
-                size = get_size(train_data, unsup_data)
-                bs += unsup_data.batch_size
-            else: 
-                size = get_size(train_data)
+            size = get_size(train_data)
+
         elif mode_string == 'val':
-            iterator.switch_to_val_data(sess)
+            unsup_iterator.switch_to_val_data(sess)
             modekey = tf.estimator.ModeKeys.EVAL
-            if config.use_unsup:
-                bs += unsup_data.batch_size
-                size = get_size(val_data, unsup_data)
-            else:
-                size = get_size(val_data)
+            size = get_size(val_data)
+
         elif mode_string == 'test':
-            iterator.switch_to_test_data(sess)
+            unsup_iterator.switch_to_test_data(sess)
             modekey = tf.estimator.ModeKeys.EVAL
-            if config.use_unsup:
-                size = get_size(test_data, unsup_data)
-            else:
-                size = get_size(test_data)
-        if config.use_unsup:
-            unsup_iterator.switch_to_dataset(sess)
+            size = get_size(test_data)
         if config.log_verbose_mle or config.log_verbose_rl:
             fl = fakelogger('{}/logs.txt'.format(config.log_dir))
 
@@ -1423,11 +1316,13 @@ def main(config = None):
                 if mode_string == 'train' or mode_string == 'pretrain':
                     feed_dict = {global_mode : modekey,
                                  generator_dropout : tf.estimator.ModeKeys.EVAL,
-                                 discriminator_dropout : tf.estimator.ModeKeys.TRAIN}
+                                 discriminator_dropout : tf.estimator.ModeKeys.TRAIN,
+                                 use_unsup : True}
                 else:
                     feed_dict = {global_mode : modekey,
                                  generator_dropout : tf.estimator.ModeKeys.EVAL,
-                                 discriminator_dropout : tf.estimator.ModeKeys.EVAL}
+                                 discriminator_dropout : tf.estimator.ModeKeys.EVAL,
+                                 use_unsup : True}
                 rtns = sess.run(fetches, feed_dict=feed_dict)
                 glob_step = rtns['global_step']
                 loss = rtns['disc_loss']
@@ -1483,23 +1378,21 @@ def main(config = None):
         nexamples = 0
         if mode_string == 'train' or mode_string == 'pretrain':
             modekey = tf.estimator.ModeKeys.TRAIN
-            iterator.switch_to_train_data(sess)
-            size = get_size(train_data)
+            nounsup_iterator.switch_to_train_data(sess)
+            size = get_size(clas_train_data)
         elif mode_string == 'val':
             modekey = tf.estimator.ModeKeys.EVAL
-            iterator.switch_to_val_data(sess)
+            nounsup_iterator.switch_to_val_data(sess)
             size = get_size(val_data)
         elif mode_string == 'test':
             modekey = tf.estimator.ModeKeys.EVAL
-            iterator.switch_to_test_data(sess)
+            nounsup_iterator.switch_to_test_data(sess)
             size = get_size(test_data)
             test_sent_count = 0
             total_real_f1 = 0
             total_real_prec = 0
             total_real_recl = 0
             preds = []
-        if config.use_unsup:
-            unsup_iterator.switch_to_dataset(sess) # although not used, must init.
         progbar = tf.keras.utils.Progbar(size, 30, 1, 0.05)
         if config.log_verbose_mle or config.log_verbose_rl:
             fl = fakelogger('{}/logs.txt'.format(config.log_dir))
@@ -1516,7 +1409,6 @@ def main(config = None):
                         'real_loss' : r_clas_loss,
                         'batch_size' : label_batch_size,
                         'global_step' : global_step,
-                        'last_labeled_batch' : last_labeled_batch,
                     }
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = clas_summaries
@@ -1540,7 +1432,6 @@ def main(config = None):
                         'fake_loss' : f_clas_loss,
                         'batch_size' : label_batch_size,
                         'global_step' : global_step,
-                        'last_labeled_batch' : last_labeled_batch,
                     }
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = clas_summaries
@@ -1566,7 +1457,6 @@ def main(config = None):
                         'f_clas_acc' : f_clas_acc,
                         'batch_size' : label_batch_size,
                         'global_step' : global_step,
-                        'last_labeled_batch' : last_labeled_batch,
                     }
                     if  clas_step % config.batches_per_summary == 0:
                         fetches['summaries'] = val_clas_summaries
@@ -1592,28 +1482,27 @@ def main(config = None):
                         'batch_size' : label_batch_size,
                         'global_step' : global_step,
                         'summaries' : val_clas_summaries,
-                        'last_labeled_batch' : last_labeled_batch,
                     }
                 if mode_string == 'train' or mode_string == 'pretrain':
                     feed_dict = {global_mode: modekey,
                                  classifier_dropout : tf.estimator.ModeKeys.TRAIN,
                                  generator_dropout : tf.estimator.ModeKeys.EVAL,
-                                 discriminator_dropout : tf.estimator.ModeKeys.TRAIN}
+                                 discriminator_dropout : tf.estimator.ModeKeys.TRAIN,
+                                 use_unsup :False}
                 else:
                     feed_dict = {global_mode: modekey,
                                  classifier_dropout : tf.estimator.ModeKeys.EVAL,
                                  generator_dropout : tf.estimator.ModeKeys.EVAL,
-                                 discriminator_dropout : tf.estimator.ModeKeys.EVAL}
+                                 discriminator_dropout : tf.estimator.ModeKeys.EVAL,
+                                 use_unsup : False}
                 if mode_string == 'pretrain':
                     feed_dict[clas_use_fake_data] = False
                 elif mode_string == 'train':
                     feed_dict[clas_use_fake_data] = True
                 else:
                     feed_dict[clas_use_fake_data] = False
-                    
                 rtns = sess.run(fetches, feed_dict = feed_dict)
                 glob_step = rtns['global_step']
-                done = rtns['last_labeled_batch']
                 loss = rtns['clas_loss']
                 r_loss = rtns['real_loss']
                 bs = rtns['batch_size']
@@ -1727,6 +1616,7 @@ def main(config = None):
     run_options = tf.RunOptions()
     # Begin training loop
     sess = tf.Session(graph=g)
+    breaking_gen_now = False
     with sess:
         #sess = tf_debug.LocalCLIDebugWrapperSession(sess)
         sess.run(tf.global_variables_initializer())
@@ -1883,6 +1773,7 @@ def main(config = None):
 
                     
             min_acc = 0
+            breaking_gen_now = True
             for e in range(config.adversarial_epochs):
                 cur_epoch = e + config.g_pretrain_epochs
                 # Generator Train
@@ -1893,7 +1784,7 @@ def main(config = None):
                 if config.mle_loss_in_adv:
                     for i in range(config.gen_mle_adv_epoch):
                         logger.info('\nGen Adv-MLE Train Epoch{}'.format(cur_epoch))
-                        gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer)
+                        gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer, config.adv_gen_train_with_unsup)
                         gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
                 
                 # Check discriminator loss
