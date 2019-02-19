@@ -11,6 +11,7 @@ from tensorflow.python import debug as tf_debug
 import custom_helpers
 from my_beam_search_decode import beam_search_decode
 
+trying_unsup = True
 
 class Generator(tf.keras.Model):
     """Generator wrapper for checkpointing"""
@@ -1093,7 +1094,6 @@ def main(config = None):
             true_class_sl = all_data_labels[0]
 
 
-    
     # Epoch running
     def gen_run_epoch(sess, mode_string, writer, train_with_unsup = True):
         if mode_string == 'train' or mode_string == 'pretrain':
@@ -1184,7 +1184,6 @@ def main(config = None):
                                 discriminator_dropout : tf.estimator.ModeKeys.PREDICT,
                                 classifier_dropout : tf.estimator.ModeKeys.PREDICT}
                 feed_dict[use_unsup] = train_with_unsup
-                    
 
                 rtns = sess.run(fetches, feed_dict=feed_dict, options=run_options)
                 glob_step = rtns['global_step']
@@ -1232,9 +1231,10 @@ def main(config = None):
                 progbar.update(nexamples,
                                [('loss', loss), ('batch_time', per_step_time)]) 
 
-                if breaking_gen_now and nexamples > config.adv_train_max_gen_examples:
+                if mode_string == 'train' and nexamples > config.adv_train_max_gen_examples:
                     break
             except tf.errors.OutOfRangeError:
+                trying_unsup=False
                 break
 
         return {'loss' : total_loss/nexamples}
@@ -1658,7 +1658,11 @@ def main(config = None):
             patience = 0
             for e in range(config.g_pretrain_epochs):
                 logger.info('\n Gen Pretrain Epoch {}'.format(e))
-                gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer)
+                if config.g_unlab_every_n > 0:
+                    train_with_unsup = e % config.g_unlab_every_n == 0
+                else:
+                    train_with_unsup = False
+                gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer, train_with_unsup)
                 logger.info('\n Gen Validate Pretrain Epoch {}'.format(e))
                 gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
                 print(gen_rtns['loss'])
@@ -1779,10 +1783,15 @@ def main(config = None):
                 # Generator Train
                 logger.info('\nGen Adv-Train Epoch {}'.format(cur_epoch))
                 for i in range(config.gen_adv_epoch):
+
                     gen_rtns = gen_run_epoch(sess, 'train', sum_writer) 
                     gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
                 if config.mle_loss_in_adv:
-                    for i in range(config.gen_mle_adv_epoch):
+                    for i in range(config.gen_mle_adv_epoch): 
+                        if config.g_unlab_every_n_adv > 0:
+                            train_with_unsup = i % config.g_unlab_every_n_adv == 0
+                        else:
+                            train_with_unsup = False
                         logger.info('\nGen Adv-MLE Train Epoch{}'.format(cur_epoch))
                         gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer, config.adv_gen_train_with_unsup)
                         gen_rtns = gen_run_epoch(sess, 'val', sum_writer)

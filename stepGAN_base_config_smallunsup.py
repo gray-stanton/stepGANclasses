@@ -22,20 +22,23 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_pretrain_epochs = 6# 60
+g_unlab_every_n = 300
+g_pretrain_epochs = 40# 60
 d_pretrain_epochs = 6# 60
 d_pretrain_critic_epochs = 0#20
 div_pretrain_epochs = 0
 c_pretrain_epochs = 25 # 20
 preadversarial_epochs = 0
-adversarial_epochs = 8
+adversarial_epochs = 10
 
-disc_adv = 1
-clas_adv = 10
+disc_adv = 2
+clas_adv = 12
+
 gen_adv_epoch = 4
+g_unlab_every_n_adv = -1
 gen_mle_adv_epoch = 2
 
-adv_train_max_gen_examples = 3000 #
+adv_train_max_gen_examples = 1000 #
 adv_gen_train_with_unsup = False
 
 # Training configs
@@ -385,13 +388,13 @@ disc_hparams = {
 
         "rnn_cell": {
                'type':tensorflow.contrib.cudnn_rnn.CudnnCompatibleGRUCell,
-              'kwargs': {'num_units': 128},
+              'kwargs': {'num_units': 512},
               'num_layers': 2,
               'dropout': {'input_keep_prob': 1.0,
               'output_keep_prob': 0.5,
               'state_keep_prob': 1,
               'variational_recurrent': True,
-              'input_size': [emb_hparams['dim'] + 1, 128],
+              'input_size': [emb_hparams['dim'] + 1, 512],
               '@no_typecheck': ['input_keep_prob',
               'output_keep_prob',
               'state_keep_prob']},
