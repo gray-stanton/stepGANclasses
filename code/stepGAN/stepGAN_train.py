@@ -36,12 +36,6 @@ class RNNClassifier(tf.keras.Model):
         self.encoder = tx.modules.UnidirectionalRNNEncoder(
             hparams = class_config['encoder'], cell_dropout_mode=dropout)
 
-class RNNDiversifier(tf.keras.Model):
-    def __init__(self, vocab_size, div_config):
-        super(RNNDiversifier, self).__init__()
-        div_config['encoder']['output_layer']['layer_size'] = vocab_size
-        self.encoder = tx.modules.UnidirectionalRNNEncoder(
-            hparams = div_config['encoder'])
 
 class Embedder(tf.keras.Model):
     def __init__(self,vocab_size, emb_config):
@@ -57,6 +51,7 @@ class RNNCritic(tf.keras.Model):
         
     def call(x):
         pass
+
 def get_logger(log_dir):
     logging.basicConfig(
         level=logging.INFO,
@@ -84,45 +79,6 @@ def get_size(sup_dataset, unsup_dataset=None):
 
 
 
-def bleu_test():
-    if config.bleu_test:
-        target_list, hyp_list = [], []
-        iterator.switch_to_val_data(sess)
-        while True:
-            try:
-                fetches = {'target_ids' : inp,
-                           'hyp_ids' : gen_sample_ids
-                          }
-                rtns = sess.run(fetches)
-                tar = vocab.map_ids_to_tokens_py(rtns['target_ids'][:, 1:-1].tolist()) # remove BOS
-                hyp = vocab.map_ids_to_tokens_py(rtns['hyp_ids'].tolist())
-                for t in tar:
-                    ct = [w for w in t if not w in ['<PAD>', 'UNK', '<EOS>', '<BOS>']]
-                    target_list.append(ct)
-                for h in hyp:
-                    ch = [w for w in h if not w in ['<PAD>', 'UNK', '<EOS>', '<BOS>']]
-                    hyp_list.append(ch)
-            except tf.errors.OutOfRangeError:
-                break
-        bleu = tx.evals.corpus_bleu_moses(
-            [target_list],
-            hyp_list,
-            return_all = False)
-        print(bleu)
-
-        return
-
-
-
-
-
-
-
-
-
-
-
-
 def print_out_array(header_names, value_lists, logger, final_line=None):
     header_format_string = ''.join(['{:<13}'] * len(header_names))
     logger.debug(header_format_string.format(*header_names))
@@ -145,13 +101,6 @@ def print_out_array(header_names, value_lists, logger, final_line=None):
 
 
 
-def get_dataset(train_lm_only, hparams):
-    if not train_lm_only:
-        return tx.data.MultiAlignedData(hparams)
-    else:
-        return tx.data.MonoTextData(hparams)
-
-
 def get_vocab(train_lm_only, d):
     if train_lm_only:
         return d.vocab
@@ -164,7 +113,7 @@ def main(config = None):
     # Setup
     if config is None:
         print('No config given...')
-        config = importlib.import_module('stepGAN_config_opspam_unsupfull')
+        config = importlib.import_module('stepGAN_config_minimal')
     g = tf.Graph()
     with g.as_default():
         logger = get_logger(config.log_dir)
@@ -239,14 +188,9 @@ def main(config = None):
         if config.clas_has_own_embedder: 
             clas_emb_model = Embedder(vocab_size, config.clas_emb_hparams)
             clas_embedder = clas_emb_model.embedder
-            #clas_copy_embedder_weights = clas_embedder.embedding.assign(embedder.embedding)
         else:
             clas_embedder = embedder
 
-        # Diversifier
-        div_model = RNNDiversifier(vocab_size, config.div_hparams) # identical to generator
-        diversifier = div_model.encoder
-        
         # Critics
         disc_crit_layer = tf.layers.Dense(**config.disc_crit_hparams)
         disc_crit = tf.keras.layers.TimeDistributed(disc_crit_layer)
@@ -266,9 +210,7 @@ def main(config = None):
             x_lengths = tf.clip_by_value(seq_lengths, 0, tf.shape(x)[1]) # Trim non-ending sentences. 
 
             context_size = config.noise_size
-            # TODO should respect labeled classes
             context = tf.random.normal((batch_size, context_size))
-            # If unlabeled, assign label 0 -> THIS IS FOR REASONS
             reclass_unlab = tf.zeros_like(all_data_labels, dtype=tf.float32)
             true_classes = tf.where(labeled, tf.cast(all_data_labels, tf.float32), reclass_unlab)
             context = tf.concat([context, tf.expand_dims(true_classes, -1)], axis=1)
@@ -287,8 +229,6 @@ def main(config = None):
             logits_mle = outputs_mle.logits
 
             observed_logits = tf.zeros_like(y_onehot)
-                #tf.reduce_sum(
-                #tf.multiply(logits_mle, y_onehot), axis = -1) #elementwise
 
             loss_mle_full = tx.losses.sequence_sparse_softmax_cross_entropy(
                 labels=y,
@@ -309,13 +249,10 @@ def main(config = None):
             mean_max_logit_mle = tf.reduce_mean(tf.reduce_max(logits_mle, axis = -1))
             mean_min_logit_mle = tf.reduce_mean(tf.reduce_min(logits_mle, axis = -1))
             mean_logit_mle = tf.reduce_mean(logits_mle)
-            #median_logit_mle = tf.reduce_mean(
-            #    tf.contrib.distributions.percentile(logits_mle, q=50, axis=-1))
             logit_sd_mle = tf.sqrt(tf.reduce_mean(tf.square(logits_mle)) - tf.square(mean_logit_mle))
             tf.summary.scalar('mean_logit_mle', mean_logit_mle)
             tf.summary.scalar("mean_max_logit_mle", mean_max_logit_mle)
             tf.summary.scalar("mean_min_logit_mle", mean_min_logit_mle)
-            #tf.summary.scalar('median_logit_mle', median_logit_mle)
             tf.summary.scalar('loss_mle', loss_mle)
             tf.summary.scalar('logit_sd_mle', logit_sd_mle)
             perplexity = tf.exp(loss_mle)
@@ -394,15 +331,9 @@ def main(config = None):
             # Inefficient, use tf.gather
             observed_gen_logits = tf.zeros_like(gen_sample_ids)
             
-            #tf.reduce_sum(
-            #    tf.math.multiply(
-            #        tf.one_hot(gen_sample_ids, vocab_size), gen_logits),
-            #    axis=-1)
             
             mean_max_logit = tf.reduce_mean(tf.reduce_max(gen_logits, axis = -1))
             mean_min_logit = tf.reduce_mean(tf.reduce_min(gen_logits, axis = -1))
-            #median_logit = tf.reduce_mean(
-            #    tf.contrib.distributions.percentile(gen_logits, q=50, axis=-1))
             mean_logit_gen = tf.reduce_mean(gen_logits)
             logit_sd_gen = tf.sqrt(tf.reduce_mean(tf.square(gen_logits)) -\
                                    tf.square(mean_logit_gen))
@@ -418,7 +349,6 @@ def main(config = None):
 
             tf.summary.scalar("mean_max_logit", mean_max_logit)
             tf.summary.scalar("mean_min_logit", mean_min_logit)
-            #tf.summary.scalar('median_logit', median_logit)
             tf.summary.scalar('logit_sd', logit_sd_gen)
             tf.summary.scalar('mean_length', mean_length)
             tf.summary.scalar('max_length', max_gen_length)
@@ -483,9 +413,6 @@ def main(config = None):
                 real_inp = tf.concat([real_inp, r_progress_vector], axis = -1)
                 fake_inp = tf.concat([fake_inp, f_progress_vector], axis = -1)
             
-            #p = tf.print(tf.shape(real_inp), tf.shape(fake_inp), tf.shape(real_seq), 
-            #             tf.shape(fake_seq), real_seq, fake_seq)
-
             r_disc_q_logit, _, r_disc_cell_outputs = discriminator(
                 real_inp, sequence_length= real_seq_lengths, return_cell_output=True,
                 mode=discriminator_dropout)
@@ -810,83 +737,7 @@ def main(config = None):
             tf.summary.scalar('val_f_clas_acc', f_clas_acc)
             val_clas_summaries = tf.summary.merge_all(scope='clas_val_sum')
 
-
-        # Train diversity-promoting discriminator
-        logger.info("Creating diversifier training subgraph...")
-        if config.diversifier_loss_lambda:
-            with g.name_scope('div_train'):
-                tiled_context2 = tf.reshape(
-                    tf.tile(
-                        zero_context,
-                        [1, tf.shape(real_inp)[1]]),
-                    [-1, tf.shape(real_inp)[1], context_size])
-                r_div_inp = tf.concat([real_inp, tiled_context2], axis = -1)
-
-                f_div_inp = fake_inp
-                random_context_reshape = tf.reshape(
-                    tf.tile(zero_context, [1, tf.shape(f_div_inp)[1]]),
-                    [-1, tf.shape(f_div_inp)[1], context_size])
-                f_div_inp = tf.concat([f_div_inp, random_context_reshape], axis = -1)
-
-                r_div_logits, _, r_div_cell_outputs = diversifier(
-                    r_div_inp, sequence_length=real_seq_lengths , return_cell_output=True)
-                f_div_logits, _, f_div_cell_outputs = diversifier(
-                    f_div_inp, gen_lengths, return_cell_output=True)
-                div_variables = tx.utils.collect_trainable_variables([diversifier])
-                
-                r_div_log_probs = tx.losses.sequence_sparse_softmax_cross_entropy(
-                    logits=r_div_logits,
-                    labels=y[:, 1:],
-                    sequence_length=real_seq_lengths ,
-                    average_across_batch=False,
-                    average_across_timesteps=False,
-                    sum_over_batch=False,
-                    sum_over_timesteps=False)
-                f_div_log_probs = tx.losses.sequence_sparse_softmax_cross_entropy(
-                    logits=f_div_logits,
-                    labels=gen_sample_ids,
-                    sequence_length=gen_lengths,
-                    average_across_batch=False,
-                    average_across_timesteps=False,
-                    sum_over_batch=False,
-                    sum_over_timesteps=False)
-                
-                r_div_mean_lp = tx.losses.mask_and_reduce(r_div_log_probs, 
-                                                          sequence_length = real_seq_lengths,
-                                                          average_across_timesteps=True,
-                                                          average_across_batch=True,
-                                                          sum_over_batch=False,
-                                                          sum_over_timesteps=False)
-                f_div_mean_lp = tx.losses.mask_and_reduce(f_div_log_probs, 
-                                                          sequence_length = gen_lengths,
-                                                          average_across_timesteps=True,
-                                                          average_across_batch=True,
-                                                          sum_over_batch=False,
-                                                          sum_over_timesteps=False)
-                div_loss = f_div_mean_lp - tr30_usp42r_div_mean_lp
-
-                div_optimizer = tx.core.get_optimizer(hparams=config.div_opt_hparams)
-
-                div_train_op = div_optimizer.minimize(div_loss,
-                                                      var_list=div_variables)
-
-                tf.summary.scalar('div_loss', div_loss)
-                tf.summary.scalar('r_div_mean_lp', r_div_mean_lp)
-                tf.summary.scalar('f_div_mean_lp', f_div_mean_lp)
-                div_summaries = tf.summary.merge_all(scope='div_train')
-
-
-
-
-
-
-
-
-
-        
-
-
-
+            
         # Generator Policy Gradient Training
         with g.name_scope('pg_train'):
             logger.info("Creating policy gradient subgraph...")
@@ -935,8 +786,6 @@ def main(config = None):
                 disc_baseline = tf.nn.sigmoid(disc_baseline)
                 clas_rewards = tf.nn.sigmoid(clas_rewards)
                 clas_baseline = tf.nn.sigmoid(clas_baseline)
-            #advantages = tf.squeeze(tf.zeros_like(log_probs))
-            #rewards = tf.squeeze(tf.zeros_like(log_probs))
             if config.classifier_loss_lambda >0 and config.reward_blending == 'additive':
                 rewards = config.discriminator_loss_lambda * tf.nn.sigmoid(disc_rewards) +\
                         config.classifier_loss_lambda * tf.nn.sigmoid(clas_rewards)
@@ -946,18 +795,7 @@ def main(config = None):
             else:
                 rewards = tf.nn.sigmoid(disc_rewards)
                 advantages = rewards - tf.nn.sigmoid(disc_baseline)
-            if config.reward_blending == 'additive' and False:
-                if config.discriminator_loss_lambda > 0:
-                    rewards = rewards + config.discriminator_loss_lambda * disc_rewards
-                    advantages = advantages +  config.discriminator_loss_lambda *(disc_rewards - disc_baseline)
-                
-                if config.classifier_loss_lambda > 0 and False:
-                    rewards = rewards + config.classifier_loss_lambda * clas_rewards
-                    advantages = advantages + config.classifier_loss_lambda *  (clas_rewards - clas_baseline)
-
-                if config.diversifier_loss_lambda > 0:
-                    rewards = rewards + config.diversifier_loss_lambda * div_rewards
-                    advantages = advantages + config.diversifier_loss_lambda * (div_rewards)
+            
             if config.reward_blending == 'f1':
                 rewards = 2 *tf.multiply(config.discriminator_loss_lambda * tf.nn.sigmoid(disc_rewards),
                                       config.classifier_loss_lambda * tf.nn.sigmoid(clas_rewards))
@@ -968,6 +806,7 @@ def main(config = None):
                 baseline = tf.divide(baseline, (config.discriminator_loss_lambda * tf.nn.sigmoid(disc_baseline) + 
                                                 config.classifier_loss_lambda *  tf.nn.sigmoid(clas_baseline)))
                 advantages = rewards - baseline
+
             advantages = tf.squeeze(advantages)
             if config.linear_decay_pg_weights:
                 steps = tf.reshape(
@@ -986,9 +825,6 @@ def main(config = None):
                                                        normalize=True,
                                                        tensor_rank=2)
             
-            #p = tf.print(tf.shape(advantages))#, advantages[0, :], advantages[1, :])
-            #advantages = advantages / config.advantage_var_reduc
-            # Advantage clipping
             advantages = tf.clip_by_value(advantages, -config.adv_max_clip, config.adv_max_clip)
 
             pg_loss_full = tx.losses.pg_loss_with_log_probs(
@@ -1002,12 +838,6 @@ def main(config = None):
                 sum_over_timesteps=False)
 
 
-            #pg_loss = tx.losses.mask_and_reduce(pg_loss_full, 
-            #                                   sequence_length = gen_lengths,
-            #                                   average_across_batch = True,
-            #                                   average_across_timesteps = True,
-            #                                   sum_over_batch = False,
-            #                                   sum_over_timesteps = False)
             pg_loss = tx.losses.pg_loss_with_log_probs(
                 log_probs=log_probs, 
                 advantages=advantages,
@@ -1369,9 +1199,9 @@ def main(config = None):
                                 rtns['disc_baseline'].squeeze().tolist()
                                ]
                     r_final_line = 'r_disc_loss: {:0.02f} r_disc_score: {:0.02f}'.format(
-                        rtns['r_disc_loss'], rtns['r_disc_score'])
+                        r_loss, rtns['r_disc_score'])
                     f_final_line = 'f_disc_loss: {:0.02f} f_disc_score: {:0.02f}'.format(
-                        rtns['f_disc_loss'], rtns['f_disc_score'])
+                        f_loss, rtns['f_disc_score'])
                     fl.debug('REAL SENTENTCE')
                     print_out_array(r_header, r_values, fl, r_final_line)
                     fl.debug('FAKE SENTENCE')
@@ -1636,13 +1466,11 @@ def main(config = None):
 
         return output
 
-    #run_options = tf.RunOptions(report_tensor_allocations_upon_oom = True) 
     run_options = tf.RunOptions()
     # Begin training loop
     sess = tf.Session(graph=g)
     breaking_gen_now = False
     with sess:
-        #sess = tf_debug.LocalCLIDebugWrapperSession(sess)
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         sess.run(tf.tables_initializer())
@@ -1698,31 +1526,22 @@ def main(config = None):
                 logger.info('\n Gen Validate Pretrain Epoch {}'.format(e))
                 #gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
                 print(gen_rtns['loss'])
-                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
-                if not config.restore_model:
-                    pass
-                    #checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-gen'))
+                if not config.gen_patience <= 0:
+                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
 
-                # Early Stopping
-                #if gen_rtns['loss'] < (min_gen_val_loss - config.gen_es_tolerance):
-                #    min_gen_val_loss = gen_rtns['loss']
-                #    patience = 0
-                #    checkpoint.save(sess, checkpoint_prefix)
-                #    if config.save_trained_gen:
-                #        gen_saver.save(sess, gen_checkpoint_prefix)
-                #else:
-                #    patience += 1
-               # 
-               # if patience > config.gen_patience:
-               #     logger.info("\n Gen Early Stopping Reached at val loss {:0.02f}".format(
-               #         min_gen_val_loss))
-               #     break
+                if gen_rtns['loss'] < (min_gen_val_loss - config.gen_es_tolerance):
+                    min_gen_val_loss = gen_rtns['loss']
+                    patience = 0
+                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
+                else:
+                    patience += 1
+               
+                if patience > config.gen_patience:
+                    logger.info("\n Gen Early Stopping Reached at val loss {:0.02f}".format(
+                        min_gen_val_loss))
+                    break
             logger.info('Min Gen MLE val loss: {}'.format(min_gen_val_loss))
 
-            #if config.train_lm_only:
-            #    return
-
-            # Keep track of these separate from global_step
             # Disc Pretraining
             logger.info("Starting discriminator pretraining...")
             if config.disc_has_own_embedder and False:
@@ -1736,34 +1555,12 @@ def main(config = None):
                 #disc_rtns = disc_run_epoch(
                 #    sess, 'val', sum_writer, disc_rtns['step'])
                 checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all-base'))
-                if not config.restore_model:
-                    pass
-                    #checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-disc'))
             logger.info('\n Discriminator critic pretraining...')
             for e in range(config.d_pretrain_critic_epochs):
                 logger.info('\n Disc-Crit Pretrain Epoch {}'.format(e))
                 disc_rtns = disc_run_epoch(
                     sess, 'train_critic', sum_writer, disc_rtns['step'])
                 checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
-                if not config.restore_model:
-                    pass
-                    #checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-disc'))
-
-            # Div pretraining
-            logger.info('Copying cell weights into diversifier...')
-            #g_decoder_cell_weights = g_decoder.cell.get_weights()
-            #mode = generator_dropout
-            #g_decoder_output_weights = g_decoder.output_layer.get_weights()
-            #diversifier.cell.set_weights(g_decoder_cell_weights)
-            #diversifier.output_layer.set_weights(g_decoder_output_weights)
-            logger.info("Starting diversifier pretraining...")
-            div_rtns = {'step' : 0}
-            for e in range(config.div_pretrain_epochs):
-                logger.info('Div Pretrain Epoch {}'.format(e))
-                div_rtns = div_run_epoch(
-                    sess, 'train', sum_writer, div_rtns['step'])
-                #checkpoint.save(sess, checkpoint_prefix)
-            
 
             logger.info("Starting classifier pretraining...")
             min_clas_val_loss = 1e8
@@ -1775,37 +1572,14 @@ def main(config = None):
                 logger.info('\nClas Pretrain Epoch {}'.format(e))
                 clas_rtns = clas_run_epoch(sess, 'pretrain', sum_writer, clas_rtns['step'])
                 print('\n Clas Validate Pretrain Epoch {}'.format(e))
-                #clas_rtns = clas_run_epoch(
-                #    sess, 'val', sum_writer, clas_rtns['step'])
-                #checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all-base'))
-                if not config.restore_model and e == config.c_pretrain_epochs -1:
-                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-bestclas'))
+                checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-bestclas'))
 
-                #if clas_rtns['loss'] < (min_clas_val_loss - config.clas_es_tolerance):
-                #    min_clas_val_loss = clas_rtns['loss']
-                #    patience = 0
-                #else:
-                #    patience += 1
-                #if patience > config.clas_patience:
-                #    logger.info('Clas Early Stopping reached at {:0.02f}'.format(clas_rtns['loss']))
-                #    break
-            
             logger.info('Min Clas  val loss: {}, acc: {}'.format(
                 min_clas_val_loss, clas_rtns['real_acc']))
             logger.info("Starting adversarial training...")
             prev_gen_val = 1e8
             extra_disc = False
-            if config.adversarial_length > 0:
-                max_length.load(config.adversarial_length, sess)
-                for e in range(config.preadversarial_epochs):
-                    disc_rtns = disc_run_epoch(
-                        sess, 'train', sum_writer, disc_rtns['step'])
-                    clas_rtns = clas_run_epoch(
-                        sess, 'train', sum_writer, clas_rtns['step'])
-                    checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-all'))
-            if not config.restore_model:
-                pass
-                #checkpoint.save(sess, os.path.join(checkpoint_dir, 'ckpt-preadv'))
+
 
                     
             min_acc = 0
@@ -1817,7 +1591,6 @@ def main(config = None):
                 for i in range(config.gen_adv_epoch):
 
                     gen_rtns = gen_run_epoch(sess, 'train', sum_writer) 
-               #     gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
                 if config.mle_loss_in_adv:
                     for i in range(config.gen_mle_adv_epoch): 
                         if config.g_unlab_every_n_adv > 0:
@@ -1826,7 +1599,7 @@ def main(config = None):
                             train_with_unsup = False
                         logger.info('\nGen Adv-MLE Train Epoch{}'.format(cur_epoch))
                         gen_rtns = gen_run_epoch(sess, 'pretrain', sum_writer, config.adv_gen_train_with_unsup)
-              #          gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
+                        gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
                 
                 # Check discriminator loss
                 if config.discriminator_loss_lambda > 0:
@@ -1839,27 +1612,13 @@ def main(config = None):
                 while config.discriminator_loss_lambda > 0 and disc_e < config.disc_adv:
                     logger.info('\nDisc Adv-Train Epoch: {}+{}'.format(cur_epoch, disc_e))
                     disc_rtns = disc_run_epoch(sess, 'train', sum_writer, disc_rtns['step'])
-             #       disc_rtns = disc_run_epoch(sess, 'val', sum_writer, disc_rtns['step'])
+                    disc_rtns = disc_run_epoch(sess, 'val', sum_writer, disc_rtns['step'])
                     disc_e += 1
                 
                 # Generator validate
                 logger.info('\nGen Adv-Valid Epoch {}'.format(cur_epoch))
                 gen_rtns = gen_run_epoch(sess, 'val', sum_writer)
                 
-                # Check Div Loss
-                #if config.diversifier_loss_lambda > 0:
-                #    logger.info('\nDiv Adv-Val Epoch {}'.format(cur_epoch))
-                #    div_rtns = div_run_epoch(sess, 'val', sum_writer, div_rtns['step'])
-                # Train Div
-                #div_e = 0
-                #while config.diversifier_loss_lambda >0  and div_rtns['loss'] > config.max_div_pg_loss:
-                #    logger.info('\nDiv Adv-Train Epoch {}+{}'.format(cur_epoch, div_e))
-                #    div_rtns = div_run_epoch(sess, 'train', sum_writer, div_rtns['step'])
-                #    div_e += 1
-                #    checkpoint.save(sess, checkpoint_prefix + '-adv')
-                #    if div_e > config.max_extra_div_adv_epochs:
-                #        logger.info('Reached extra div epoch limit at loss: {}'.format(div_rtns['loss']))
-                #        break
 
                 # Check Clas Acc
                 if config.classifier_loss_lambda > 0:

@@ -4,13 +4,13 @@ import importlib
 import stepGAN_train
 import texar
 import random
-BASEDIR = '/home/gray/code/stepGAN/opspam_final/out/'
+BASEDIR = './opspam_final/out/'
 
 def get_config_file(trp, usp):
     if usp == -1:
         return 'stepGAN_base_config_nogan'
     if usp == 0.0:
-        return 'stepGAN_base_config_nounsup2'
+        return 'stepGAN_base_config_nounsup'
     if usp == 0.5 or usp == 0.6:
         return 'stepGAN_base_config_smallunsup'
     if usp == 0.7 or usp == 0.8:
@@ -18,12 +18,12 @@ def get_config_file(trp, usp):
     if usp == 0.9 or usp == 1.0:
         return 'stepGAN_base_config_smallunsup'
 
-unsup_revs_path = '/home/gray/code/stepGAN/chicago_unlab_reviews.txt'
+unsup_revs_path = './chicago_unlab_reviews.txt'
 
-train_revs = '/home/gray/code/stepGAN/opspam_train_reviews.txt'
-train_labs = '/home/gray/code/stepGAN/opspam_train_labels.txt'
-test_revs = '/home/gray/code/stepGAN/opspam_test_reviews.txt'
-test_labs = '/home/gray/code/stepGAN/opspam_test_labels.txt'
+train_revs = './opspam_train_reviews.txt'
+train_labs = './opspam_train_labels.txt'
+test_revs = './opspam_test_reviews.txt'
+test_labs = './opspam_test_labels.txt'
 
 def make_data(trp, usp, run):
     nogan = False
@@ -110,8 +110,8 @@ def make_data(trp, usp, run):
     return data_paths
 
 # 0.5, 0.8 x 0.5, 0.8
-for train_pcent in [0.3]:
-    for unsup_pcent in [-1]:
+for train_pcent in [0.1, 0.3, 0.5, 0.7, 0.9, 1.0]:
+    for unsup_pcent in [-1, 0.0, 0.5, 0.7, 1.0]:
         for run in range(0, 10):
             base_config_file = get_config_file(train_pcent, unsup_pcent)
             data_paths = make_data(train_pcent, unsup_pcent, run)

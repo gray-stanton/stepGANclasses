@@ -10,8 +10,8 @@ clas_pred_output = None
 # Saving/logging Config
 restore_model= False
 clear_run_logs = False
-log_dir= None
-checkpoint_dir= None
+log_dir= '/tmp/'
+checkpoint_dir= '/tmp'
 load_checkpoint_file = None
 log_verbose_mle = True
 log_verbose_rl = True
@@ -22,13 +22,12 @@ compute_grad_norms = False
 
 # Epoch count
 train_lm_only = False
-g_unlab_every_n = 300
-g_pretrain_epochs = 40# 60
-d_pretrain_epochs = 3# 60
-d_pretrain_critic_epochs = 20#20
-c_pretrain_epochs = 25 # 20
-preadversarial_epochs = 0
-adversarial_epochs = 6
+g_unlab_every_n = 20
+g_pretrain_epochs = 1# 60
+d_pretrain_epochs = 1# 60
+d_pretrain_critic_epochs = 0#20
+c_pretrain_epochs =1 # 20
+adversarial_epochs = 1
 
 disc_adv = 1
 clas_adv = 10
@@ -41,13 +40,10 @@ adv_train_max_gen_examples = 1000 #
 adv_disc_max_ex = 5000
 adv_gen_train_with_unsup = False
 
-# Training configs
-min_disc_pg_acc = 0.85 # Train disc in PG when acc less than
-min_clas_pg_fakeacc = 0.51
 
 gen_patience=20
 gen_es_tolerance = 0.005
-clas_es_tolerance = -0.05
+clas_es_tolerance = 0.005
 clas_patience = 10
 
 max_extra_disc_adv_epochs = 1
@@ -67,6 +63,7 @@ linear_decay_pg_weights = True
 prior_prob=0.5 # probability of class 1 in generated/unlabeled data.
 noise_size=10
 
+advantage_var_reduc = 1
 
 
 
@@ -124,8 +121,8 @@ train_data = {
     "name": "train_data",
     'datasets' : [ 
         {
-            "files" : None,
-            'vocab_file' : None,
+            "files" : ['./opspam_train_reviews.txt'],
+            'vocab_file' : './opspam_vocab.txt',
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -135,7 +132,7 @@ train_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : None,
+            'files' : './opspam_train_labels.txt',
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -157,8 +154,8 @@ clas_train_data = {
     "name": "train_data",
     'datasets' : [ 
         {
-            "files" : None,
-            'vocab_file' : None,
+            "files" : ['./opspam_train_reviews.txt'],
+            'vocab_file' : './opspam_vocab.txt',
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -168,7 +165,7 @@ clas_train_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : None,
+            'files' : ['./opspam_train_labels.txt'],
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -193,8 +190,8 @@ val_data = {
 
     'datasets' : [ 
         {
-            "files" : None,
-            'vocab_file' : None,
+            "files" : ['./opspam_val_reviews.txt'],
+            'vocab_file' : './opspam_vocab.txt',
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -204,7 +201,7 @@ val_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : None,
+            'files' : ['./opspam_val_labels.txt'],
             'data_type' : 'int',
             'data_name' : 'label'
         }
@@ -225,8 +222,8 @@ test_data = {
     "name": "test_data",
     'datasets' : [ 
         {
-            "files" : None,
-            'vocab_file' : None,
+            "files" : 'opspam_test_reviews.txt',
+            'vocab_file' : 'opspam_vocab.txt',
             'max_seq_length' : 128,
             'length_filter_mode' : 'truncate',
             'bos_token' : '<BOS>',
@@ -236,7 +233,7 @@ test_data = {
             'pad_to_max_seq_length' : True
         },
         {
-            'files' : None,
+            'files' : 'opspam_test_labels.txt',
             'data_type' : 'int',
             'data_name' : 'label'
         }
